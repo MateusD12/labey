@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Share2, QrCode, CheckCircle2, Timer } from 'lucide-react'
+import { Share2, QrCode, CheckCircle2, Timer, Tv } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { useTorneio } from '@/hooks/useTorneio'
 import { useAuth } from '@/lib/auth'
@@ -151,6 +151,11 @@ export default function TorneioDetalhe() {
             </div>
 
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* Modo TV */}
+              <Link to={`/torneios/${id}/tv`} title="Modo TV" target="_blank" rel="noopener noreferrer" style={{ background: 'none', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', padding: '7px 10px', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+                <Tv size={16} />
+              </Link>
+
               {/* Share */}
               <button onClick={handleShare} title="Compartilhar" style={{ background: 'none', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', padding: '7px 12px', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'DM Sans', fontSize: 13 }}>
                 <Share2 size={14} /> Compartilhar

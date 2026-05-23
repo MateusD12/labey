@@ -15,6 +15,7 @@ export default function TorneioAdmin() {
   const { perfil } = useAuth()
   const { torneio, inscricoes, partidas, loading } = useTorneio(id!)
   const [pendentes, setPendentes] = useState<Inscricao[]>([])
+  const [listaEspera, setListaEspera] = useState<Inscricao[]>([])
   const [allRankings, setAllRankings] = useState<Ranking[]>([])
   const [linkedRankingIds, setLinkedRankingIds] = useState<Set<string>>(new Set())
   const [juizes, setJuizes] = useState<TorneioJuiz[]>([])
@@ -40,6 +41,8 @@ export default function TorneioAdmin() {
     if (!id) return
     supabase.from('inscricoes').select('*, perfil:perfis(*)').eq('torneio_id', id).eq('status', 'pendente')
       .then(({ data }) => { if (data) setPendentes(data as Inscricao[]) })
+    supabase.from('inscricoes').select('*, perfil:perfis(*)').eq('torneio_id', id).eq('status', 'lista_espera').order('created_at', { ascending: true })
+      .then(({ data }) => { if (data) setListaEspera(data as Inscricao[]) })
     loadRankings()
     loadJuizes()
   }, [id, loadRankings, loadJuizes])
@@ -95,6 +98,17 @@ export default function TorneioAdmin() {
   const rejeitar = async (inscricaoId: string) => {
     await supabase.from('inscricoes').update({ status: 'rejeitado' }).eq('id', inscricaoId)
     setPendentes(p => p.filter(i => i.id !== inscricaoId))
+  }
+
+  const promoverDaFila = async (inscricaoId: string) => {
+    await supabase.from('inscricoes').update({ status: 'aprovado' }).eq('id', inscricaoId)
+    setListaEspera(p => p.filter(i => i.id !== inscricaoId))
+    setMsg('Participante promovido da fila de espera!')
+  }
+
+  const removerDaFila = async (inscricaoId: string) => {
+    await supabase.from('inscricoes').update({ status: 'rejeitado' }).eq('id', inscricaoId)
+    setListaEspera(p => p.filter(i => i.id !== inscricaoId))
   }
 
   const avancarParaFaseEliminatoria = async () => {
@@ -294,6 +308,27 @@ export default function TorneioAdmin() {
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button onClick={() => aprovar(ins.id)} style={{ background: 'var(--color-success)', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontSize: '12px', fontFamily: 'DM Sans' }}>Aprovar</button>
                     <button onClick={() => rejeitar(ins.id)} style={{ background: 'var(--color-danger)', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontSize: '12px', fontFamily: 'DM Sans' }}>Rejeitar</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {listaEspera.length > 0 && (
+          <div className="card" style={{ marginBottom: 24, borderColor: 'rgba(245,158,11,0.3)' }}>
+            <h2 style={{ fontFamily: 'Rajdhani', fontSize: '18px', marginBottom: 4, color: 'var(--color-warning)' }}>Fila de Espera ({listaEspera.length})</h2>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 16 }}>Ordem de chegada. Promova para dar uma vaga direta.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {listaEspera.map((ins, idx) => (
+                <div key={ins.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontFamily: 'Rajdhani', fontWeight: 700, fontSize: 14, color: 'var(--color-warning)', minWidth: 20 }}>#{idx + 1}</span>
+                    <span style={{ fontFamily: 'DM Sans', fontSize: '14px' }}>{ins.perfil?.nome_display ?? ins.blade_id}</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => promoverDaFila(ins.id)} style={{ background: 'var(--color-success)', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontSize: '12px', fontFamily: 'DM Sans' }}>Promover</button>
+                    <button onClick={() => removerDaFila(ins.id)} style={{ background: 'none', color: 'var(--color-danger)', border: '1px solid var(--color-danger)', padding: '4px 12px', borderRadius: 6, cursor: 'pointer', fontSize: '12px', fontFamily: 'DM Sans' }}>Remover</button>
                   </div>
                 </div>
               ))}

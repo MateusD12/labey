@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { fetchUserDecks } from '@/lib/beyblades'
 import { Badges } from '@/components/perfil/Badges'
-import type { Perfil as PerfilType, EstatisticasBlade, Deck } from '@/types'
+import type { Perfil as PerfilType, EstatisticasBlade, Deck, Partida } from '@/types'
 
 export default function Perfil() {
   const { id } = useParams<{ id: string }>()
@@ -15,6 +15,7 @@ export default function Perfil() {
   const [perfil, setPerfil] = useState<PerfilType | null>(null)
   const [stats, setStats] = useState<EstatisticasBlade | null>(null)
   const [decks, setDecks] = useState<Deck[]>([])
+  const [h2h, setH2h] = useState<Partida[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
@@ -34,6 +35,17 @@ export default function Perfil() {
     if (!id) return
     fetchUserDecks(id).then(setDecks).catch(() => {})
   }, [id])
+
+  useEffect(() => {
+    if (!id || !user || user.id === id) return
+    supabase.from('partidas')
+      .select('id, blade1_id, blade2_id, vencedor_id, blade1_score, blade2_score, status, torneio:torneios(nome)')
+      .in('status', ['finalizada', 'w.o.'])
+      .or(`and(blade1_id.eq.${user.id},blade2_id.eq.${id}),and(blade1_id.eq.${id},blade2_id.eq.${user.id})`)
+      .order('created_at', { ascending: false })
+      .limit(20)
+      .then(({ data }) => { if (data) setH2h(data as unknown as Partida[]) })
+  }, [id, user])
 
   if (loading) return (
     <>
@@ -75,6 +87,53 @@ export default function Perfil() {
           </div>
           {stats && <EstatisticasCard stats={stats} />}
         </div>
+
+        {!isOwn && user && h2h.length > 0 && (() => {
+          const myWins = h2h.filter(p => p.vencedor_id === user.id).length
+          const theirWins = h2h.filter(p => p.vencedor_id === id).length
+          const draws = h2h.filter(p => p.status === 'finalizada' && !p.vencedor_id).length
+          return (
+            <div style={{ marginTop: 32 }}>
+              <h2 style={{ fontFamily: 'Rajdhani', fontWeight: 700, fontSize: 22, color: 'var(--color-text-primary)', marginBottom: 4 }}>Confronto Direto</h2>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 16 }}>Últimos {h2h.length} confrontos entre vocês</p>
+              <div style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '20px 24px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'Rajdhani', fontWeight: 700, fontSize: 36, color: myWins > theirWins ? 'var(--color-success)' : 'var(--color-text-muted)' }}>{myWins}</div>
+                  <div style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'var(--color-text-muted)' }}>Você</div>
+                </div>
+                <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontFamily: 'Rajdhani', fontSize: 20 }}>
+                  {draws > 0 && <div style={{ fontFamily: 'DM Sans', fontSize: 11, marginBottom: 2 }}>{draws} empate{draws > 1 ? 's' : ''}</div>}
+                  vs
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'Rajdhani', fontWeight: 700, fontSize: 36, color: theirWins > myWins ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>{theirWins}</div>
+                  <div style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'var(--color-text-muted)' }}>{perfil?.username}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {h2h.map(p => {
+                  const iWon = p.vencedor_id === user.id
+                  const theyWon = p.vencedor_id === id
+                  const myScore = p.blade1_id === user.id ? p.blade1_score : p.blade2_score
+                  const theirScore = p.blade1_id === id ? p.blade1_score : p.blade2_score
+                  return (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: iWon ? 'rgba(34,197,94,0.06)' : theyWon ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.02)', border: `1px solid ${iWon ? 'rgba(34,197,94,0.15)' : theyWon ? 'rgba(239,68,68,0.15)' : 'var(--color-border)'}`, borderRadius: 8, padding: '8px 14px' }}>
+                      <span style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'var(--color-text-muted)' }}>{(p as any).torneio?.nome ?? 'Torneio'}</span>
+                      <span style={{ fontFamily: 'Rajdhani', fontWeight: 700, fontSize: 16 }}>
+                        <span style={{ color: iWon ? 'var(--color-success)' : 'var(--color-text-muted)' }}>{myScore ?? '-'}</span>
+                        {' – '}
+                        <span style={{ color: theyWon ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>{theirScore ?? '-'}</span>
+                      </span>
+                      <span style={{ fontFamily: 'DM Sans', fontSize: 11, fontWeight: 700, color: iWon ? 'var(--color-success)' : theyWon ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
+                        {iWon ? 'Vitória' : theyWon ? 'Derrota' : 'Empate'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
 
         {decks.length > 0 && (
           <div style={{ marginTop: 32 }}>

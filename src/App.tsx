@@ -23,6 +23,7 @@ import AdminRankings from '@/pages/AdminRankings'
 import Colecao from '@/pages/Colecao'
 import Combos from '@/pages/Combos'
 import Decks from '@/pages/Decks'
+import TorneioTV from '@/pages/TorneioTV'
 
 function PushSetup() {
   usePushNotifications()
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/torneios" element={<Torneios />} />
           <Route path="/torneios/:id" element={<TorneioDetalhe />} />
+          <Route path="/torneios/:id/tv" element={<TorneioTV />} />
           <Route path="/rankings" element={<Rankings />} />
           <Route path="/bladers" element={<Bladers />} />
           <Route path="/perfil/:id" element={<Perfil />} />

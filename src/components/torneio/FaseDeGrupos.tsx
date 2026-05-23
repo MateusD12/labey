@@ -54,7 +54,7 @@ export function FaseDeGrupos({ partidas, isAdmin, onRefresh, pontos = { vitoria:
                             {rodada != null ? `Fase ${rodada}` : 'Partidas'}
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {rodadaPartidas.map(p => <MatchCard key={p.id} partida={p} isAdmin={isAdmin} onRegistrar={() => setModalPartida(p)} />)}
+                            {rodadaPartidas.map(p => <MatchCard key={p.id} partida={p} isAdmin={isAdmin} onRegistrar={() => setModalPartida(p)} onRefresh={onRefresh} />)}
                           </div>
                         </div>
                       )

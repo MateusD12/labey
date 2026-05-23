@@ -29,7 +29,7 @@ export function RoundRobin({ partidas, isAdmin, onRefresh }: Props) {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {rodadaPartidas.map(p => (
-                  <MatchCard key={p.id} partida={p} isAdmin={isAdmin} onRegistrar={() => setModalPartida(p)} />
+                  <MatchCard key={p.id} partida={p} isAdmin={isAdmin} onRegistrar={() => setModalPartida(p)} onRefresh={onRefresh} />
                 ))}
               </div>
             </div>

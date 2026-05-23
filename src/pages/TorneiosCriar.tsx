@@ -5,6 +5,22 @@ import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import type { Formato } from '@/types'
 
+const TEMPLATES_KEY = 'labey_torneio_templates'
+
+interface TorneioTemplate {
+  id: string
+  nome: string
+  form: Record<string, string>
+}
+
+function loadTemplates(): TorneioTemplate[] {
+  try { return JSON.parse(localStorage.getItem(TEMPLATES_KEY) ?? '[]') } catch { return [] }
+}
+
+function saveTemplates(ts: TorneioTemplate[]) {
+  localStorage.setItem(TEMPLATES_KEY, JSON.stringify(ts))
+}
+
 const formatos: { value: Formato; label: string }[] = [
   { value: 'eliminatorio_simples', label: 'Eliminatório Simples' },
   { value: 'eliminatorio_duplo', label: 'Eliminatório Duplo' },
@@ -28,6 +44,8 @@ export default function TorneiosCriar() {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [templates, setTemplates] = useState<TorneioTemplate[]>(loadTemplates)
+  const [showTemplates, setShowTemplates] = useState(false)
 
   if (perfil && !perfil.is_admin) return (
     <>
@@ -39,6 +57,26 @@ export default function TorneiosCriar() {
   )
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleSaveTemplate = () => {
+    const name = prompt('Nome do template:')
+    if (!name) return
+    const t: TorneioTemplate = { id: Date.now().toString(), nome: name, form: { ...form, nome: '' } }
+    const updated = [...templates, t]
+    saveTemplates(updated)
+    setTemplates(updated)
+  }
+
+  const handleLoadTemplate = (t: TorneioTemplate) => {
+    setForm(f => ({ ...f, ...t.form }))
+    setShowTemplates(false)
+  }
+
+  const handleDeleteTemplate = (tid: string) => {
+    const updated = templates.filter(t => t.id !== tid)
+    saveTemplates(updated)
+    setTemplates(updated)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,7 +105,36 @@ export default function TorneiosCriar() {
     <>
       <Navbar />
       <main style={{ maxWidth: 680, margin: '0 auto', padding: '40px 24px' }}>
-        <h1 style={{ fontFamily: 'Rajdhani', fontSize: '32px', fontWeight: 700, marginBottom: 32 }}>Criar Torneio</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+          <h1 style={{ fontFamily: 'Rajdhani', fontSize: '32px', fontWeight: 700, margin: 0 }}>Criar Torneio</h1>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {templates.length > 0 && (
+              <button type="button" onClick={() => setShowTemplates(v => !v)} style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 13 }}>
+                📂 Templates ({templates.length})
+              </button>
+            )}
+            <button type="button" onClick={handleSaveTemplate} style={{ background: 'rgba(43,91,232,0.1)', border: '1px solid rgba(43,91,232,0.3)', color: 'var(--color-blue-light)', padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 13 }}>
+              💾 Salvar template
+            </button>
+          </div>
+        </div>
+
+        {showTemplates && templates.length > 0 && (
+          <div style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 10, padding: 16, marginBottom: 24 }}>
+            <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 10 }}>Clique para carregar um template:</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {templates.map(t => (
+                <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border)', borderRadius: 8 }}>
+                  <button type="button" onClick={() => handleLoadTemplate(t)} style={{ background: 'none', border: 'none', color: 'var(--color-text-primary)', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 13, fontWeight: 600, textAlign: 'left', flex: 1 }}>
+                    {t.nome} <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>— {t.form.formato}</span>
+                  </button>
+                  <button type="button" onClick={() => handleDeleteTemplate(t.id)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div><label style={labelStyle}>Nome do torneio *</label><input required value={form.nome} onChange={e => set('nome', e.target.value)} style={inputStyle} placeholder="Ex: LaBey Championship 2025" /></div>
           <div><label style={labelStyle}>Formato *</label><select value={form.formato} onChange={e => set('formato', e.target.value as Formato)} style={inputStyle}>{formatos.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}</select></div>

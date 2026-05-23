@@ -98,7 +98,7 @@ export function BracketEliminatorio({ partidas, isAdmin, onRefresh }: Props) {
                   </div>
                   {faseParts.map((p, matchIdx) => (
                     <div key={p.id} style={{ position: 'absolute', left: 0, right: 0, top: tops[matchIdx] ?? matchIdx * STRIDE }}>
-                      <MatchCard partida={p} isAdmin={isAdmin} onRegistrar={() => setModalPartida(p)} />
+                      <MatchCard partida={p} isAdmin={isAdmin} onRegistrar={() => setModalPartida(p)} onRefresh={onRefresh} />
                     </div>
                   ))}
                   {hasConnector && faseParts.map((_, matchIdx) => {
