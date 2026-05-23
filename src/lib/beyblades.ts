@@ -7,6 +7,12 @@ export async function fetchCatalog(): Promise<BeybladeRow[]> {
   return (data ?? []) as BeybladeRow[]
 }
 
+export async function fetchAllParts(): Promise<BeybladeRow[]> {
+  const { data, error } = await supabase.from('beyblades').select('*')
+  if (error) throw error
+  return (data ?? []) as BeybladeRow[]
+}
+
 export async function fetchUserCollection(userId: string): Promise<BeybladeRow[]> {
   const { data, error } = await supabase.from('beyblades').select('*').eq('user_id', userId)
   if (error) throw error

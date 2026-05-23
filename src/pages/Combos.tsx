@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { RefreshCw, Shuffle } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { ComboDisplay } from '@/components/beyblade/ComboDisplay'
-import { fetchCatalog } from '@/lib/beyblades'
+import { fetchAllParts } from '@/lib/beyblades'
 import { pickCombo } from '@/lib/algorithms/combos'
 import type { BeybladeRow, ComboPart, SystemName } from '@/types'
 
@@ -12,16 +12,16 @@ interface GeneratedCombo {
 }
 
 export default function Combos() {
-  const [catalog, setCatalog] = useState<BeybladeRow[]>([])
+  const [parts, setParts] = useState<BeybladeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [combos, setCombos] = useState<[GeneratedCombo, GeneratedCombo] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
-    fetchCatalog()
-      .then(d => setCatalog(d))
-      .catch(() => setError('Erro ao carregar catálogo.'))
+    fetchAllParts()
+      .then(d => setParts(d))
+      .catch(() => setError('Erro ao carregar peças.'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -29,9 +29,9 @@ export default function Combos() {
     setError(null)
     setGenerating(true)
     try {
-      const p1 = pickCombo(catalog)
+      const p1 = pickCombo(parts)
       const usedIds = new Set(p1.parts.map(p => p.id ? `id:${p.id}` : `b:${p.beyblade}|t:${p.tipo}|p:${p.peca}`))
-      const p2 = pickCombo(catalog, usedIds)
+      const p2 = pickCombo(parts, usedIds)
       setCombos([p1, p2])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível gerar combos.')
@@ -49,7 +49,7 @@ export default function Combos() {
             Gerador de Combos
           </h1>
           <p style={{ fontFamily: 'DM Sans', fontSize: 14, color: 'var(--color-text-muted)', margin: 0 }}>
-            Gera dois combos aleatórios sem peças repetidas, suportando BX/UX, CX e CX Expend.
+            Gera dois combos aleatórios sem peças repetidas — BX/UX, CX e CX Expend.
           </p>
         </div>
 
@@ -60,7 +60,8 @@ export default function Combos() {
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
               background: 'var(--color-blue-primary)', color: '#fff', border: 'none',
-              padding: '13px 28px', borderRadius: 10, cursor: (loading || generating) ? 'not-allowed' : 'pointer',
+              padding: '13px 28px', borderRadius: 10,
+              cursor: (loading || generating) ? 'not-allowed' : 'pointer',
               fontFamily: 'DM Sans', fontWeight: 700, fontSize: 16,
               opacity: (loading || generating) ? 0.6 : 1,
               transition: 'opacity 0.2s',
@@ -75,7 +76,7 @@ export default function Combos() {
 
         {loading && (
           <div style={{ textAlign: 'center', padding: 60, color: 'var(--color-text-muted)', fontFamily: 'DM Sans' }}>
-            Carregando catálogo...
+            Carregando peças...
           </div>
         )}
 
@@ -97,15 +98,10 @@ export default function Combos() {
         )}
 
         {!loading && !combos && !error && (
-          <div style={{
-            textAlign: 'center', padding: '60px 24px',
-            color: 'var(--color-text-muted)', fontFamily: 'DM Sans',
-          }}>
+          <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--color-text-muted)', fontFamily: 'DM Sans' }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🎯</div>
             <div style={{ fontSize: 15 }}>Clique em "Gerar Combos" para sortear dois combos competitivos</div>
-            <div style={{ fontSize: 13, marginTop: 6, color: 'var(--color-text-muted)' }}>
-              {catalog.length} peças no catálogo
-            </div>
+            <div style={{ fontSize: 13, marginTop: 6 }}>{parts.length} peças disponíveis</div>
           </div>
         )}
       </div>
