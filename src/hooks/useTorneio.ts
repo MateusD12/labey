@@ -8,6 +8,7 @@ export function useTorneio(torneioId: string) {
   const [inscricoes, setInscricoes] = useState<Inscricao[]>([])
   const [rankings, setRankings] = useState<Ranking[]>([])
   const [loading, setLoading] = useState(true)
+  const [partidasError, setPartidasError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const [t, p, i, rt] = await Promise.all([
@@ -22,7 +23,8 @@ export function useTorneio(torneioId: string) {
       supabase.from('ranking_torneios').select('ranking:rankings(*)').eq('torneio_id', torneioId),
     ])
     if (t.error) console.error('[useTorneio] torneio:', t.error)
-    if (p.error) console.error('[useTorneio] partidas:', p.error)
+    if (p.error) { console.error('[useTorneio] partidas:', p.error); setPartidasError(p.error.message) }
+    else setPartidasError(null)
     if (i.error) console.error('[useTorneio] inscricoes:', i.error)
     setTorneio(t.data as Torneio)
     setPartidas((p.data ?? []) as Partida[])
@@ -43,5 +45,5 @@ export function useTorneio(torneioId: string) {
     return () => { supabase.removeChannel(channel) }
   }, [torneioId])
 
-  return { torneio, partidas, inscricoes, rankings, loading, reload: load }
+  return { torneio, partidas, inscricoes, rankings, loading, reload: load, partidasError }
 }

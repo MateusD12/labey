@@ -19,6 +19,7 @@ export interface Perfil {
   estado?: string | null
   beyblade_favorito?: string | null
   is_admin: boolean
+  is_juiz?: boolean
   created_at?: string
 }
 
@@ -84,6 +85,7 @@ export interface TorneioJuiz {
   id: string
   torneio_id: string
   blade_id: string
+  tipo: 'titular' | 'reserva'
   perfil?: Perfil
 }
 

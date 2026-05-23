@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { AdminToggleButton } from '@/components/admin/AdminToggleButton'
+import { JuizToggleButton } from '@/components/admin/JuizToggleButton'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import type { Perfil } from '@/types'
@@ -37,6 +38,7 @@ export default function AdminUsuarios() {
                 <th style={{ padding: '12px 16px', textAlign: 'left' }}>Usuário</th>
                 <th style={{ padding: '12px 16px', textAlign: 'left' }}>Username</th>
                 <th style={{ padding: '12px 16px', textAlign: 'left' }}>Cidade</th>
+                <th style={{ padding: '12px 16px', textAlign: 'center' }}>Juíz</th>
                 <th style={{ padding: '12px 16px', textAlign: 'center' }}>Admin</th>
               </tr>
             </thead>
@@ -54,6 +56,9 @@ export default function AdminUsuarios() {
                   </td>
                   <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>@{u.username}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--color-text-muted)' }}>{u.cidade ?? '—'}</td>
+                  <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                    <JuizToggleButton userId={u.id} isJuiz={u.is_juiz ?? false} />
+                  </td>
                   <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                     <AdminToggleButton userId={u.id} isAdmin={u.is_admin} isSelf={u.id === user?.id} />
                   </td>
