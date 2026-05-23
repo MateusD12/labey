@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export function JuizToggleButton({ userId, isJuiz }: { userId: string; isJuiz: boolean }) {
+export function JuizToggleButton({ userId, isJuiz, onToggle }: { userId: string; isJuiz: boolean; onToggle?: (v: boolean) => void }) {
   const [juiz, setJuiz] = useState(isJuiz)
   const [loading, setLoading] = useState(false)
 
   const toggle = async () => {
     setLoading(true)
     const { error } = await supabase.from('perfis').update({ is_juiz: !juiz }).eq('id', userId)
-    if (!error) setJuiz(j => !j)
+    if (!error) { setJuiz(j => !j); onToggle?.(!juiz) }
     setLoading(false)
   }
 

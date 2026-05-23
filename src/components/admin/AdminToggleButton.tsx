@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export function AdminToggleButton({ userId, isAdmin, isSelf }: { userId: string; isAdmin: boolean; isSelf: boolean }) {
+export function AdminToggleButton({ userId, isAdmin, isSelf, onToggle }: { userId: string; isAdmin: boolean; isSelf: boolean; onToggle?: (v: boolean) => void }) {
   const [admin, setAdmin] = useState(isAdmin)
   const [loading, setLoading] = useState(false)
 
@@ -12,7 +12,7 @@ export function AdminToggleButton({ userId, isAdmin, isSelf }: { userId: string;
   const toggle = async () => {
     setLoading(true)
     const { error } = await supabase.from('perfis').update({ is_admin: !admin }).eq('id', userId)
-    if (!error) setAdmin(a => !a)
+    if (!error) { setAdmin(a => !a); onToggle?.(!admin) }
     setLoading(false)
   }
 

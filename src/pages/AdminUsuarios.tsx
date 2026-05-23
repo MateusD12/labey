@@ -79,8 +79,8 @@ export default function AdminUsuarios() {
 
               {/* Toggles */}
               <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                <JuizToggleButton userId={u.id} isJuiz={u.is_juiz ?? false} />
-                <AdminToggleButton userId={u.id} isAdmin={u.is_admin} isSelf={u.id === user?.id} />
+                <JuizToggleButton userId={u.id} isJuiz={u.is_juiz ?? false} onToggle={v => setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, is_juiz: v } : x))} />
+                <AdminToggleButton userId={u.id} isAdmin={u.is_admin} isSelf={u.id === user?.id} onToggle={v => setUsuarios(prev => prev.map(x => x.id === u.id ? { ...x, is_admin: v } : x))} />
               </div>
             </div>
           ))}
