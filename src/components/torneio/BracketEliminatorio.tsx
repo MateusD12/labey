@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import type { Partida } from '@/types'
 import { MatchCard } from './MatchCard'
 import { ResultadoModal } from './ResultadoModal'
@@ -8,9 +8,9 @@ const STRIDE = 93
 const CONN_W = 44
 const CARD_W = 230
 
-const FASE_ORDER = ['rodada_1', 'oitavas', 'quartas', 'semi', 'final']
+const FASE_ORDER = ['decasseis', 'oitavas', 'quartas', 'semi', 'final']
 const FASE_NAME: Record<string, string> = {
-  rodada_1: 'Rodada 1', oitavas: 'Oitavas', quartas: 'Quartas', semi: 'Semifinal', final: 'Final',
+  decasseis: 'Rodada 32', oitavas: 'Oitavas', quartas: 'Quartas', semi: 'Semifinal', final: 'Final',
 }
 
 function calcTops(numRounds: number): number[][] {
@@ -110,11 +110,11 @@ export function BracketEliminatorio({ partidas, isAdmin, onRefresh }: Props) {
                     const partnerCenter = partnerTop + MATCH_H / 2
                     const midY = (center + partnerCenter) / 2
                     return (
-                      <g key={`conn-${matchIdx}`}>
+                      <Fragment key={`conn-${matchIdx}`}>
                         <div style={{ position: 'absolute', top: center - 1, left: CARD_W, width: CONN_W / 2, height: 2, background: 'var(--color-border)' }} />
                         {isPairTop && <div style={{ position: 'absolute', top: center, left: CARD_W + CONN_W / 2 - 1, width: 2, height: partnerCenter - center, background: 'var(--color-border)' }} />}
                         {isPairTop && <div style={{ position: 'absolute', top: midY - 1, left: CARD_W + CONN_W / 2, width: CONN_W / 2, height: 2, background: 'var(--color-border)' }} />}
-                      </g>
+                      </Fragment>
                     )
                   })}
                 </div>
