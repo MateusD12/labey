@@ -57,7 +57,11 @@ export default function Perfil() {
             </Link>
           )}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
+        <style>{`
+          .perfil-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24; align-items: start; }
+          @media (max-width: 600px) { .perfil-grid { grid-template-columns: 1fr; gap: 16px; } }
+        `}</style>
+        <div className="perfil-grid" style={{ display: 'grid', gap: 24, alignItems: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {perfil && <PerfilCard perfil={perfil} />}
             {perfil?.beyblade_favorito && (
