@@ -12,7 +12,7 @@ export function useTorneio(torneioId: string) {
   const load = async () => {
     const [t, p, i, rt] = await Promise.all([
       supabase.from('torneios').select('*').eq('id', torneioId).single(),
-      supabase.from('partidas').select('*, blade1:perfis!blade1_id(id, username, nome_display, avatar_url), blade2:perfis!blade2_id(id, username, nome_display, avatar_url)').eq('torneio_id', torneioId).order('posicao_bracket').order('numero_rodada').order('created_at'),
+      supabase.from('partidas').select('*, blade1:perfis!blade1_id(id, username, nome_display, avatar_url), blade2:perfis!blade2_id(id, username, nome_display, avatar_url), juiz:perfis!juiz_id(id, username, nome_display, avatar_url)').eq('torneio_id', torneioId).order('posicao_bracket').order('numero_rodada').order('created_at'),
       supabase.from('inscricoes').select('*, perfil:perfis(id, username, nome_display, avatar_url)').eq('torneio_id', torneioId).eq('status', 'aprovado'),
       supabase.from('ranking_torneios').select('ranking:rankings(*)').eq('torneio_id', torneioId),
     ])

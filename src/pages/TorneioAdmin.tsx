@@ -8,7 +8,7 @@ import { gerarBracketEliminatorio } from '@/lib/algorithms/eliminatorio'
 import { gerarRodadaSuica } from '@/lib/algorithms/swiss'
 import { distribuirEmGrupos, gerarPartidasGrupos, calcularClassificacaoGrupo } from '@/lib/algorithms/grupos'
 import { gerarPartidasRoundRobin } from '@/lib/algorithms/roundrobin'
-import type { Inscricao, Ranking } from '@/types'
+import type { Inscricao, Ranking, TorneioJuiz, Perfil } from '@/types'
 
 export default function TorneioAdmin() {
   const { id } = useParams<{ id: string }>()
@@ -17,7 +17,15 @@ export default function TorneioAdmin() {
   const [pendentes, setPendentes] = useState<Inscricao[]>([])
   const [allRankings, setAllRankings] = useState<Ranking[]>([])
   const [linkedRankingIds, setLinkedRankingIds] = useState<Set<string>>(new Set())
+  const [juizes, setJuizes] = useState<TorneioJuiz[]>([])
+  const [jSearch, setJSearch] = useState('')
+  const [jResults, setJResults] = useState<Perfil[]>([])
   const [msg, setMsg] = useState('')
+
+  const loadJuizes = useCallback(async () => {
+    const { data } = await supabase.from('torneio_juizes').select('*, perfil:perfis(id, username, nome_display, avatar_url)').eq('torneio_id', id)
+    if (data) setJuizes(data as TorneioJuiz[])
+  }, [id])
 
   const loadRankings = useCallback(async () => {
     const [{ data: allR }, { data: rt }] = await Promise.all([
@@ -33,7 +41,8 @@ export default function TorneioAdmin() {
     supabase.from('inscricoes').select('*, perfil:perfis(*)').eq('torneio_id', id).eq('status', 'pendente')
       .then(({ data }) => { if (data) setPendentes(data as Inscricao[]) })
     loadRankings()
-  }, [id, loadRankings])
+    loadJuizes()
+  }, [id, loadRankings, loadJuizes])
 
   const toggleRanking = async (rankingId: string) => {
     if (linkedRankingIds.has(rankingId)) {
@@ -42,6 +51,35 @@ export default function TorneioAdmin() {
       await supabase.from('ranking_torneios').insert({ torneio_id: id, ranking_id: rankingId })
     }
     await loadRankings()
+  }
+
+  const searchBladers = async (q: string) => {
+    setJSearch(q)
+    if (q.length < 2) { setJResults([]); return }
+    const { data } = await supabase.from('perfis').select('id, username, nome_display, avatar_url').or(`username.ilike.%${q}%,nome_display.ilike.%${q}%`).limit(6)
+    setJResults((data ?? []) as Perfil[])
+  }
+
+  const addJuiz = async (bladeId: string) => {
+    if (juizes.some(j => j.blade_id === bladeId)) return
+    await supabase.from('torneio_juizes').insert({ torneio_id: id, blade_id: bladeId })
+    await loadJuizes()
+    setJSearch(''); setJResults([])
+  }
+
+  const removeJuiz = async (juizId: string) => {
+    await supabase.from('torneio_juizes').delete().eq('id', juizId)
+    await loadJuizes()
+  }
+
+  const distribuirJuizes = async () => {
+    if (!juizes.length) { setMsg('Adicione juizes primeiro.'); return }
+    const pendentes = partidas.filter(p => p.status === 'pendente' && p.blade1_id && p.blade2_id)
+    if (!pendentes.length) { setMsg('Nenhuma partida pendente para atribuir.'); return }
+    await Promise.all(
+      pendentes.map((p, i) => supabase.from('partidas').update({ juiz_id: juizes[i % juizes.length].blade_id }).eq('id', p.id))
+    )
+    setMsg(`Juizes distribuidos para ${pendentes.length} partidas!`)
   }
 
   if (!perfil?.is_admin) return <div style={{ padding: 60, textAlign: 'center', color: 'var(--color-danger)', fontFamily: 'DM Sans' }}>Acesso negado</div>
@@ -210,6 +248,40 @@ export default function TorneioAdmin() {
             })}
             {allRankings.length === 0 && <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--color-text-muted)' }}>Nenhum ranking cadastrado.</p>}
           </div>
+        </div>
+
+        <div className="card" style={{ marginBottom: 24 }}>
+          <h2 style={{ fontFamily: 'Rajdhani', fontSize: '18px', marginBottom: 8 }}>Juizes do torneio</h2>
+          <p style={{ fontFamily: 'DM Sans', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: 14 }}>Adicione juizes e distribua-os automaticamente pelas partidas.</p>
+          <div style={{ position: 'relative', marginBottom: 12 }}>
+            <input
+              value={jSearch}
+              onChange={e => searchBladers(e.target.value)}
+              placeholder="Buscar blader pelo nome..."
+              style={{ width: '100%', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '10px 14px', color: 'var(--color-text-primary)', fontFamily: 'DM Sans', fontSize: '13px', boxSizing: 'border-box' }}
+            />
+            {jResults.length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 8, zIndex: 10, overflow: 'hidden' }}>
+                {jResults.map(p => (
+                  <button key={p.id} onClick={() => addJuiz(p.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', width: '100%', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-text-primary)', textAlign: 'left' }}>
+                    <span style={{ fontFamily: 'DM Sans', fontSize: 13, fontWeight: 600 }}>{p.username}</span>
+                    <span style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'var(--color-text-muted)' }}>{p.nome_display}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: juizes.length ? 14 : 0 }}>
+            {juizes.map(j => (
+              <span key={j.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(43,91,232,0.12)', border: '1px solid rgba(43,91,232,0.3)', borderRadius: 20, padding: '4px 10px 4px 12px', fontFamily: 'DM Sans', fontSize: 12, color: 'var(--color-blue-light)' }}>
+                {j.perfil?.username}
+                <button onClick={() => removeJuiz(j.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+              </span>
+            ))}
+          </div>
+          {juizes.length > 0 && (
+            <button onClick={distribuirJuizes} className="btn-primary" style={{ fontSize: 12, padding: '8px 16px' }}>Distribuir juizes (round-robin)</button>
+          )}
         </div>
 
         {pendentes.length > 0 && (

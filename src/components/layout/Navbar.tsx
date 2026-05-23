@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Bell } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
+import { requestPermission } from '@/hooks/usePushNotifications'
 
 const NAV_LINKS = [
   { to: '/torneios',   label: 'Torneios' },
@@ -13,6 +14,8 @@ const NAV_LINKS = [
 export function Navbar() {
   const { user, perfil, signOut } = useAuth()
   const [open, setOpen] = useState(false)
+  const notifSupported = typeof window !== 'undefined' && 'Notification' in window
+  const notifGranted = notifSupported && Notification.permission === 'granted'
 
   return (
     <>
@@ -63,6 +66,11 @@ export function Navbar() {
               <>
                 {perfil?.is_admin && (
                   <Link to="/admin" style={{ color: 'var(--color-blue-light)', fontFamily: 'DM Sans', fontSize: '14px', fontWeight: 600 }}>Admin</Link>
+                )}
+                {notifSupported && !notifGranted && (
+                  <button onClick={() => requestPermission(user.id)} title="Ativar notificacoes" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 4, display: 'flex', alignItems: 'center' }}>
+                    <Bell size={18} />
+                  </button>
                 )}
                 <Link to={`/perfil/${perfil?.id}`}>
                   <UserAvatar perfil={perfil} size={32} />

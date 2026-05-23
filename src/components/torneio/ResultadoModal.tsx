@@ -34,6 +34,7 @@ export function ResultadoModal({ partida, onClose, onSaved }: Props) {
     }
 
     setSaving(false)
+    void supabase.functions.invoke('notify-next-judge', { body: { torneioId: partida.torneio_id } })
     onSaved()
     onClose()
   }
@@ -69,6 +70,7 @@ export function ResultadoModal({ partida, onClose, onSaved }: Props) {
     }
 
     setSaving(false)
+    void supabase.functions.invoke('notify-next-judge', { body: { torneioId: partida.torneio_id } })
     onSaved()
     onClose()
   }

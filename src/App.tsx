@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from '@/lib/auth'
 import { PrivateRoute } from '@/components/auth/PrivateRoute'
 import { PwaInstallPopup } from '@/components/layout/PwaInstallPopup'
+import { usePushNotifications } from '@/hooks/usePushNotifications'
 
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
@@ -20,11 +21,17 @@ import Admin from '@/pages/Admin'
 import AdminUsuarios from '@/pages/AdminUsuarios'
 import AdminRankings from '@/pages/AdminRankings'
 
+function PushSetup() {
+  usePushNotifications()
+  return null
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <PwaInstallPopup />
+        <PushSetup />
         <Routes>
           {/* Public */}
           <Route path="/" element={<Home />} />

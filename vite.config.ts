@@ -7,15 +7,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       injectRegister: 'auto',
-      devOptions: { enabled: true },
-      workbox: {
-        skipWaiting: true,
-        clientsClaim: true,
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-      },
+      devOptions: { enabled: true, type: 'module' },
       manifest: {
         name: 'LaBey — Laboratory Beyblade',
         short_name: 'LaBey',

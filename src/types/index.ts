@@ -74,6 +74,15 @@ export interface Partida {
   blade1?: Perfil | null
   blade2?: Perfil | null
   vencedor?: Perfil | null
+  juiz_id?: string | null
+  juiz?: Perfil | null
+}
+
+export interface TorneioJuiz {
+  id: string
+  torneio_id: string
+  blade_id: string
+  perfil?: Perfil
 }
 
 export interface Ranking {

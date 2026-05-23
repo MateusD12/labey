@@ -81,6 +81,12 @@ export function MatchCard({ partida, isAdmin, onRegistrar, style }: Props) {
     >
       <PlayerRow perfil={partida.blade1} score={partida.blade1_score} isWinner={isW1} isFinished={isF} hasBorder />
       <PlayerRow perfil={partida.blade2} score={partida.blade2_score} isWinner={isW2} isFinished={isF} hasBorder={false} />
+      {partida.juiz && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderTop: '1px solid var(--color-border)', background: 'rgba(255,255,255,0.02)' }}>
+          <span style={{ fontSize: 10, color: 'var(--color-text-muted)', fontFamily: 'DM Sans' }}>Juiz:</span>
+          <span style={{ fontSize: 10, color: 'var(--color-blue-light)', fontFamily: 'DM Sans', fontWeight: 600 }}>{partida.juiz.username}</span>
+        </div>
+      )}
     </div>
   )
 }
