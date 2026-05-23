@@ -6,7 +6,7 @@ import { useTorneio } from '@/hooks/useTorneio'
 import { supabase } from '@/lib/supabase'
 import { gerarBracketEliminatorio } from '@/lib/algorithms/eliminatorio'
 import { gerarRodadaSuica } from '@/lib/algorithms/swiss'
-import { distribuirEmGrupos, gerarPartidasGrupos } from '@/lib/algorithms/grupos'
+import { distribuirEmGrupos, gerarPartidasGrupos, calcularClassificacaoGrupo } from '@/lib/algorithms/grupos'
 import { gerarPartidasRoundRobin } from '@/lib/algorithms/roundrobin'
 import type { Inscricao, Ranking } from '@/types'
 
@@ -57,6 +57,38 @@ export default function TorneioAdmin() {
   const rejeitar = async (inscricaoId: string) => {
     await supabase.from('inscricoes').update({ status: 'rejeitado' }).eq('id', inscricaoId)
     setPendentes(p => p.filter(i => i.id !== inscricaoId))
+  }
+
+  const avancarParaFaseEliminatoria = async () => {
+    const partidasGrupos = partidas.filter(p => p.fase === 'grupos')
+    if (partidasGrupos.length === 0) { setMsg('Nenhuma partida de grupo encontrada.'); return }
+    if (!partidasGrupos.every(p => p.status === 'finalizada')) { setMsg('Finalize todas as partidas de grupo primeiro.'); return }
+    if (partidas.some(p => p.fase !== 'grupos')) { setMsg('Fase eliminatoria ja foi gerada.'); return }
+
+    const classificacao = calcularClassificacaoGrupo(partidasGrupos, {
+      vitoria: torneio.pontos_vitoria,
+      empate: torneio.pontos_empate,
+      derrota: torneio.pontos_derrota,
+    })
+
+    const porGrupo = new Map<string, { blade_id: string; grupo: string; pontos: number; saldo: number; gp: number }[]>()
+    classificacao.forEach(entry => {
+      if (!porGrupo.has(entry.grupo)) porGrupo.set(entry.grupo, [])
+      porGrupo.get(entry.grupo)!.push(entry)
+    })
+
+    const classificados: string[] = []
+    porGrupo.forEach(membros => {
+      membros.sort((a, b) => b.pontos - a.pontos || b.saldo - a.saldo || b.gp - a.gp)
+        .slice(0, torneio.classificados_por_grupo)
+        .forEach(m => classificados.push(m.blade_id))
+    })
+
+    if (classificados.length < 2) { setMsg('Classificados insuficientes para gerar bracket.'); return }
+
+    const novasPartidas = gerarBracketEliminatorio(classificados, id!)
+    await supabase.from('partidas').insert(novasPartidas)
+    setMsg(`Fase eliminatoria gerada com ${classificados.length} classificados!`)
   }
 
   const gerarProximaRodadaSuica = async () => {
@@ -138,6 +170,9 @@ export default function TorneioAdmin() {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {torneio.status === 'rascunho' && <button onClick={() => atualizarStatus('inscricoes')} className="btn-primary">Abrir inscrições</button>}
             {torneio.status === 'inscricoes' && <button onClick={gerarPartidas} className="btn-primary">Gerar partidas e iniciar</button>}
+            {torneio.status === 'em_andamento' && torneio.formato === 'copa_do_mundo' && (
+              <button onClick={avancarParaFaseEliminatoria} className="btn-primary">Avancar para fase eliminatoria</button>
+            )}
             {torneio.status === 'em_andamento' && torneio.formato === 'suico' && (
               <button onClick={gerarProximaRodadaSuica} className="btn-primary">Gerar proxima rodada</button>
             )}

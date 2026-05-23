@@ -20,7 +20,12 @@ const labelStyle: React.CSSProperties = { fontFamily: 'DM Sans', fontSize: '13px
 export default function TorneiosCriar() {
   const { perfil } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ nome: '', descricao: '', formato: 'eliminatorio_simples' as Formato, max_participantes: '', data_inicio: '', premio: '', regras: '' })
+  const [form, setForm] = useState({
+    nome: '', descricao: '', formato: 'eliminatorio_simples' as Formato,
+    max_participantes: '', data_inicio: '', premio: '', regras: '',
+    pontos_vitoria: '3', pontos_empate: '1', pontos_derrota: '0',
+    num_grupos: '4', classificados_por_grupo: '2', num_rodadas_suico: '5',
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -47,6 +52,12 @@ export default function TorneiosCriar() {
       premio: form.premio || null,
       regras: form.regras || null,
       status: 'rascunho',
+      pontos_vitoria: parseInt(form.pontos_vitoria) || 3,
+      pontos_empate: parseInt(form.pontos_empate) || 1,
+      pontos_derrota: parseInt(form.pontos_derrota) || 0,
+      num_grupos: parseInt(form.num_grupos) || 4,
+      classificados_por_grupo: parseInt(form.classificados_por_grupo) || 2,
+      num_rodadas_suico: parseInt(form.num_rodadas_suico) || 5,
     }).select().single()
     if (err) { setError(err.message); setSaving(false); return }
     navigate(`/torneios/${data.id}/admin`)
@@ -64,6 +75,23 @@ export default function TorneiosCriar() {
             <div><label style={labelStyle}>Máx. participantes</label><input type="number" value={form.max_participantes} onChange={e => set('max_participantes', e.target.value)} style={inputStyle} placeholder="16" /></div>
             <div><label style={labelStyle}>Data de início</label><input type="date" value={form.data_inicio} onChange={e => set('data_inicio', e.target.value)} style={inputStyle} /></div>
           </div>
+          <div>
+            <label style={labelStyle}>Pontuação</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+              <div><label style={{ ...labelStyle, fontSize: '11px' }}>Vitória</label><input type="number" min="0" value={form.pontos_vitoria} onChange={e => set('pontos_vitoria', e.target.value)} style={inputStyle} /></div>
+              <div><label style={{ ...labelStyle, fontSize: '11px' }}>Empate</label><input type="number" min="0" value={form.pontos_empate} onChange={e => set('pontos_empate', e.target.value)} style={inputStyle} /></div>
+              <div><label style={{ ...labelStyle, fontSize: '11px' }}>Derrota</label><input type="number" min="0" value={form.pontos_derrota} onChange={e => set('pontos_derrota', e.target.value)} style={inputStyle} /></div>
+            </div>
+          </div>
+          {(form.formato === 'fase_grupos' || form.formato === 'copa_do_mundo') && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div><label style={labelStyle}>Número de grupos</label><input type="number" min="2" value={form.num_grupos} onChange={e => set('num_grupos', e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Classificados por grupo</label><input type="number" min="1" value={form.classificados_por_grupo} onChange={e => set('classificados_por_grupo', e.target.value)} style={inputStyle} /></div>
+            </div>
+          )}
+          {form.formato === 'suico' && (
+            <div><label style={labelStyle}>Número de rodadas suíças</label><input type="number" min="1" value={form.num_rodadas_suico} onChange={e => set('num_rodadas_suico', e.target.value)} style={inputStyle} /></div>
+          )}
           <div><label style={labelStyle}>Prêmio</label><input value={form.premio} onChange={e => set('premio', e.target.value)} style={inputStyle} placeholder="Ex: Troféu + Kit Beyblade" /></div>
           <div><label style={labelStyle}>Descrição</label><textarea value={form.descricao} onChange={e => set('descricao', e.target.value)} style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} placeholder="Descreva o torneio..." /></div>
           <div><label style={labelStyle}>Regras</label><textarea value={form.regras} onChange={e => set('regras', e.target.value)} style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} placeholder="Regras especiais..." /></div>
