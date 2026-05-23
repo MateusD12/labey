@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
@@ -26,6 +26,7 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 export default function AdminRankings() {
+  const navigate = useNavigate()
   const { perfil, loading } = useAuth()
   const [rankings, setRankings] = useState<RankingComTorneios[]>([])
   const [allTorneios, setAllTorneios] = useState<Torneio[]>([])
@@ -96,7 +97,8 @@ export default function AdminRankings() {
   return (
     <>
       <Navbar />
-      <main style={{ maxWidth: 860, margin: '0 auto', padding: '40px 24px' }}>
+      <main style={{ maxWidth: 860, margin: '0 auto', padding: '40px 16px' }}>
+        <button onClick={() => navigate(-1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontFamily: 'DM Sans', fontSize: 13, padding: '0 0 20px 0' }}>← Voltar</button>
         <h1 style={{ fontFamily: 'Rajdhani', fontSize: 28, fontWeight: 700, marginBottom: 32 }}>Gerenciar Rankings</h1>
 
         <form onSubmit={criar} style={{ display: 'flex', gap: 12, marginBottom: 36, flexWrap: 'wrap', padding: '20px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12 }}>
@@ -112,19 +114,23 @@ export default function AdminRankings() {
             const available = allTorneios.filter(t => !linkedIds.includes(t.id))
             return (
               <div key={r.id} style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 12, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px' }}>
-                  <button onClick={() => setExpanded(isExpanded ? null : r.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, padding: 0 }}>
-                    <span style={{ fontFamily: 'Rajdhani', fontSize: 17, fontWeight: 700, color: 'var(--color-text-primary)' }}>{r.nome}</span>
-                    {r.temporada && <span style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 10 }}>{r.temporada}</span>}
-                    <span style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)' }}>{r.torneios.length} torneio{r.torneios.length !== 1 ? 's' : ''}</span>
-                    <span style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▾</span>
-                  </button>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button onClick={() => recalcular(r.id)} disabled={recalculating === r.id} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(43,91,232,0.2)', color: 'var(--color-blue-light)', fontFamily: 'DM Sans', fontSize: 12, fontWeight: 600, opacity: recalculating === r.id ? 0.6 : 1 }}>
-                      {recalculating === r.id ? '⟳ Recalculando...' : '⟳ Recalcular'}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                    <button onClick={() => setExpanded(isExpanded ? null : r.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: 0, flex: 1, minWidth: 0, textAlign: 'left' }}>
+                      <span style={{ fontFamily: 'Rajdhani', fontSize: 17, fontWeight: 700, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nome}</span>
+                      <span style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block', flexShrink: 0 }}>▾</span>
                     </button>
-                    <button onClick={() => toggleAtivo(r.id, r.ativo)} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', cursor: 'pointer', background: r.ativo ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: r.ativo ? 'var(--color-success)' : 'var(--color-danger)', fontFamily: 'DM Sans', fontSize: 12, fontWeight: 600 }}>
+                    <button onClick={() => toggleAtivo(r.id, r.ativo)} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', background: r.ativo ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: r.ativo ? 'var(--color-success)' : 'var(--color-danger)', fontFamily: 'DM Sans', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
                       {r.ativo ? 'Ativo' : 'Inativo'}
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {r.temporada && <span style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 10 }}>{r.temporada}</span>}
+                      <span style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)' }}>{r.torneios.length} torneio{r.torneios.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <button onClick={() => recalcular(r.id)} disabled={recalculating === r.id} style={{ padding: '4px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(43,91,232,0.2)', color: 'var(--color-blue-light)', fontFamily: 'DM Sans', fontSize: 12, fontWeight: 600, opacity: recalculating === r.id ? 0.6 : 1 }}>
+                      {recalculating === r.id ? '⟳ Recalculando...' : '⟳ Recalcular'}
                     </button>
                   </div>
                 </div>
@@ -138,13 +144,15 @@ export default function AdminRankings() {
                         : (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {r.torneios.map(t => (
-                              <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 8 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 12px', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 8 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
                                   <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: STATUS_COLOR[t.status] ?? 'var(--color-text-muted)' }} />
-                                  <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--color-text-primary)' }}>{t.nome}</span>
-                                  <span style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)' }}>{formatFormato(t.formato)} · {STATUS_LABEL[t.status] ?? t.status}</span>
+                                  <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.nome}</div>
+                                    <div style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)' }}>{formatFormato(t.formato)} · {STATUS_LABEL[t.status] ?? t.status}</div>
+                                  </div>
                                 </div>
-                                <button onClick={() => unlinkTorneio(r.id, t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', fontSize: 13, padding: '2px 6px', borderRadius: 4 }} title="Desvincular">✕</button>
+                                <button onClick={() => unlinkTorneio(r.id, t.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)', fontSize: 13, padding: '2px 6px', borderRadius: 4, flexShrink: 0 }} title="Desvincular">✕</button>
                               </div>
                             ))}
                           </div>
@@ -157,13 +165,15 @@ export default function AdminRankings() {
                         <p style={{ fontFamily: 'DM Sans', fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 10 }}>Adicionar torneio</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           {available.map(t => (
-                            <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', border: '1px dashed var(--color-border)', borderRadius: 8 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 12px', border: '1px dashed var(--color-border)', borderRadius: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
                                 <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: STATUS_COLOR[t.status] ?? 'var(--color-text-muted)', opacity: 0.5 }} />
-                                <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--color-text-secondary)' }}>{t.nome}</span>
-                                <span style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)' }}>{formatFormato(t.formato)} · {STATUS_LABEL[t.status] ?? t.status}</span>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.nome}</div>
+                                  <div style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)' }}>{formatFormato(t.formato)} · {STATUS_LABEL[t.status] ?? t.status}</div>
+                                </div>
                               </div>
-                              <button onClick={() => linkTorneio(r.id, t.id)} style={{ background: 'rgba(43,91,232,0.15)', border: 'none', cursor: 'pointer', color: 'var(--color-blue-light)', fontSize: 12, fontFamily: 'DM Sans', fontWeight: 600, padding: '4px 10px', borderRadius: 6 }}>+ Vincular</button>
+                              <button onClick={() => linkTorneio(r.id, t.id)} style={{ background: 'rgba(43,91,232,0.15)', border: 'none', cursor: 'pointer', color: 'var(--color-blue-light)', fontSize: 12, fontFamily: 'DM Sans', fontWeight: 600, padding: '4px 10px', borderRadius: 6, flexShrink: 0 }}>+ Vincular</button>
                             </div>
                           ))}
                         </div>

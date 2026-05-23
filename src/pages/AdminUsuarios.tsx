@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { AdminToggleButton } from '@/components/admin/AdminToggleButton'
 import { JuizToggleButton } from '@/components/admin/JuizToggleButton'
@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import type { Perfil } from '@/types'
 
 export default function AdminUsuarios() {
+  const navigate = useNavigate()
   const { user, perfil, loading } = useAuth()
   const [usuarios, setUsuarios] = useState<Perfil[]>([])
   const [busca, setBusca] = useState('')
@@ -39,6 +40,7 @@ export default function AdminUsuarios() {
     <>
       <Navbar />
       <main style={{ maxWidth: 800, margin: '0 auto', padding: '40px 16px' }}>
+        <button onClick={() => navigate(-1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontFamily: 'DM Sans', fontSize: 13, padding: '0 0 16px 0' }}>← Voltar</button>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
           <h1 style={{ fontFamily: 'Rajdhani', fontSize: '28px', fontWeight: 700, margin: 0 }}>Usuários ({usuarios.length})</h1>
           <div style={{ display: 'flex', gap: 12, fontSize: 12, fontFamily: 'DM Sans', color: 'var(--color-text-muted)' }}>

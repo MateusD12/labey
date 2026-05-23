@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { useAuth } from '@/lib/auth'
 import { useTorneio } from '@/hooks/useTorneio'
@@ -11,6 +11,7 @@ import { gerarPartidasRoundRobin } from '@/lib/algorithms/roundrobin'
 import type { Inscricao, Ranking, TorneioJuiz, Perfil } from '@/types'
 
 export default function TorneioAdmin() {
+  const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const { perfil } = useAuth()
   const { torneio, inscricoes, partidas, loading, reload, partidasError } = useTorneio(id!)
@@ -269,6 +270,7 @@ export default function TorneioAdmin() {
     <>
       <Navbar />
       <main style={{ maxWidth: 900, margin: '0 auto', padding: '40px 24px' }}>
+        <button onClick={() => navigate(-1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontFamily: 'DM Sans', fontSize: 13, padding: '0 0 16px 0' }}>← Voltar</button>
         <h1 style={{ fontFamily: 'Rajdhani', fontSize: '28px', fontWeight: 700, marginBottom: 8 }}>Admin — {torneio.nome}</h1>
         <p style={{ color: 'var(--color-text-muted)', fontFamily: 'DM Sans', fontSize: '13px', marginBottom: 32 }}>Status: {torneio.status}</p>
         {msg && <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid var(--color-success)', borderRadius: 8, padding: '10px 16px', marginBottom: 24, color: 'var(--color-success)', fontFamily: 'DM Sans', fontSize: '13px' }}>{msg}</div>}
