@@ -13,7 +13,7 @@ import type { Inscricao, Ranking } from '@/types'
 export default function TorneioAdmin() {
   const { id } = useParams<{ id: string }>()
   const { perfil } = useAuth()
-  const { torneio, inscricoes, loading } = useTorneio(id!)
+  const { torneio, inscricoes, partidas, loading } = useTorneio(id!)
   const [pendentes, setPendentes] = useState<Inscricao[]>([])
   const [allRankings, setAllRankings] = useState<Ranking[]>([])
   const [linkedRankingIds, setLinkedRankingIds] = useState<Set<string>>(new Set())
@@ -59,6 +59,44 @@ export default function TorneioAdmin() {
     setPendentes(p => p.filter(i => i.id !== inscricaoId))
   }
 
+  const gerarProximaRodadaSuica = async () => {
+    if (!partidas.length) { setMsg('Nenhuma partida encontrada.'); return }
+
+    const rodadaAtual = Math.max(...partidas.map(p => p.numero_rodada || 0))
+    const partidasRodada = partidas.filter(p => p.numero_rodada === rodadaAtual)
+    if (!partidasRodada.every(p => p.status === 'finalizada')) {
+      setMsg('Finalize todas as partidas da rodada atual antes de gerar a próxima.')
+      return
+    }
+
+    const pontosMap: Record<string, number> = {}
+    const adversariosMap: Record<string, string[]> = {}
+    inscricoes.forEach(i => { pontosMap[i.blade_id] = 0; adversariosMap[i.blade_id] = [] })
+
+    partidas.forEach(p => {
+      if (p.status !== 'finalizada' || !p.blade1_id || !p.blade2_id) return
+      if (!adversariosMap[p.blade1_id]) adversariosMap[p.blade1_id] = []
+      if (!adversariosMap[p.blade2_id]) adversariosMap[p.blade2_id] = []
+      adversariosMap[p.blade1_id].push(p.blade2_id)
+      adversariosMap[p.blade2_id].push(p.blade1_id)
+      if (p.vencedor_id) pontosMap[p.vencedor_id] = (pontosMap[p.vencedor_id] || 0) + (torneio.pontos_vitoria || 1)
+    })
+
+    const participantes = inscricoes.map(i => ({
+      id: i.blade_id,
+      pontos: pontosMap[i.blade_id] || 0,
+      adversarios: adversariosMap[i.blade_id] || [],
+    }))
+
+    const novasPartidas = gerarRodadaSuica(participantes, rodadaAtual + 1, id!)
+    if (novasPartidas.length > 0) {
+      await supabase.from('partidas').insert(novasPartidas)
+      setMsg(`Rodada ${rodadaAtual + 1} gerada com ${novasPartidas.length} partidas!`)
+    } else {
+      setMsg('Nao foi possivel gerar novos pares (todos ja jogaram entre si?).')
+    }
+  }
+
   const gerarPartidas = async () => {
     const ids = inscricoes.map(i => i.blade_id)
     if (ids.length < 2) { setMsg('Mínimo 2 participantes aprovados.'); return }
@@ -100,6 +138,9 @@ export default function TorneioAdmin() {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {torneio.status === 'rascunho' && <button onClick={() => atualizarStatus('inscricoes')} className="btn-primary">Abrir inscrições</button>}
             {torneio.status === 'inscricoes' && <button onClick={gerarPartidas} className="btn-primary">Gerar partidas e iniciar</button>}
+            {torneio.status === 'em_andamento' && torneio.formato === 'suico' && (
+              <button onClick={gerarProximaRodadaSuica} className="btn-primary">Gerar proxima rodada</button>
+            )}
             {torneio.status === 'em_andamento' && <button onClick={() => atualizarStatus('finalizado')} style={{ background: 'var(--color-success)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 500 }}>Finalizar torneio</button>}
           </div>
         </div>

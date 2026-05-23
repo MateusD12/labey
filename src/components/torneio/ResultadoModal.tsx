@@ -26,6 +26,24 @@ export function ResultadoModal({ partida, onClose, onSaved }: Props) {
       vencedor_id: vencedor,
       status: 'finalizada',
     }).eq('id', partida.id)
+
+    // Advance winner to the next bracket round
+    if (
+      vencedor &&
+      partida.numero_rodada &&
+      partida.posicao_bracket !== null &&
+      partida.posicao_bracket !== undefined
+    ) {
+      const nextRodada = partida.numero_rodada + 1
+      const nextPos = Math.floor(partida.posicao_bracket / 2)
+      const slot = partida.posicao_bracket % 2 === 0 ? 'blade1_id' : 'blade2_id'
+      await supabase.from('partidas')
+        .update({ [slot]: vencedor })
+        .eq('torneio_id', partida.torneio_id)
+        .eq('numero_rodada', nextRodada)
+        .eq('posicao_bracket', nextPos)
+    }
+
     setSaving(false)
     onSaved()
     onClose()
