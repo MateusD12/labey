@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
+import { AppPresentacaoModal } from '@/components/layout/AppPresentacaoModal'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import type { Torneio, EstatisticasBlade } from '@/types'
@@ -58,10 +59,17 @@ function QuickCard({ to, icon, title, desc, highlight }: { to: string; icon: str
   )
 }
 
-function HomePublica() {
+function HomePublica({ onShowPitch }: { onShowPitch: () => void }) {
   return (
     <main style={{ minHeight: 'calc(100vh - 64px)', background: 'var(--color-bg-primary)', backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(43,91,232,0.08) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(43,91,232,0.05) 0%, transparent 40%)' }}>
-      <section style={{ maxWidth: 800, margin: '0 auto', padding: '80px 24px 60px', textAlign: 'center' }}>
+      <style>{`
+        @keyframes lp-glow { 0%,100% { box-shadow: 0 0 20px rgba(43,91,232,0.3), inset 0 0 20px rgba(43,91,232,0.05) } 50% { box-shadow: 0 0 40px rgba(43,91,232,0.55), inset 0 0 30px rgba(43,91,232,0.1) } }
+        @keyframes lp-arrow { 0%,100% { transform: translateX(0) } 50% { transform: translateX(5px) } }
+        .lp-pitch-btn:hover .lp-arrow { animation: lp-arrow 0.7s ease infinite; }
+        .lp-pitch-btn:hover { border-color: rgba(43,91,232,0.7) !important; background: rgba(43,91,232,0.1) !important; }
+      `}</style>
+
+      <section style={{ maxWidth: 800, margin: '0 auto', padding: '80px 24px 48px', textAlign: 'center' }}>
         <img src="/logo.png" alt="LaBey" style={{ maxWidth: 300, width: '100%', display: 'block', margin: '0 auto 40px', objectFit: 'contain' }} />
         <h1 style={{ fontFamily: 'Rajdhani', fontSize: 'clamp(36px, 6vw, 62px)', fontWeight: 700, lineHeight: 1.1, marginBottom: 20, background: 'linear-gradient(135deg, #fff 0%, var(--color-blue-light) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           A arena oficial dos<br />Bladers brasileiros
@@ -77,6 +85,36 @@ function HomePublica() {
             Criar conta
           </Link>
         </div>
+      </section>
+
+      {/* "O que o app faz?" card */}
+      <section style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px 44px' }}>
+        <button
+          onClick={onShowPitch}
+          className="lp-pitch-btn"
+          style={{
+            width: '100%', cursor: 'pointer', border: '1px solid rgba(43,91,232,0.35)',
+            borderRadius: 16, background: 'rgba(43,91,232,0.06)',
+            padding: '22px 28px', textAlign: 'left',
+            animation: 'lp-glow 3s ease infinite',
+            transition: 'border-color 0.2s, background 0.2s',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+              <div style={{ width: 46, height: 46, borderRadius: 12, background: 'linear-gradient(135deg, rgba(43,91,232,0.4), rgba(99,102,241,0.3))', border: '1px solid rgba(43,91,232,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+                🚀
+              </div>
+              <div>
+                <p style={{ fontFamily: 'Rajdhani', fontSize: 20, fontWeight: 700, color: '#fff', marginBottom: 3 }}>O que o LaBey faz?</p>
+                <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>
+                  Conheça todas as funcionalidades da plataforma — torneios, rankings, notificações e muito mais.
+                </p>
+              </div>
+            </div>
+            <div className="lp-arrow" style={{ color: 'var(--color-blue-light)', fontSize: 20, flexShrink: 0, fontFamily: 'DM Sans' }}>→</div>
+          </div>
+        </button>
       </section>
 
       <section style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px 80px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
@@ -96,7 +134,7 @@ function HomePublica() {
   )
 }
 
-function HomeDashboard({ nomeDisplay, torneios, topBladers }: { nomeDisplay: string; torneios: Torneio[]; topBladers: EstatisticasBlade[] }) {
+function HomeDashboard({ nomeDisplay, torneios, topBladers, onShowPitch }: { nomeDisplay: string; torneios: Torneio[]; topBladers: EstatisticasBlade[]; onShowPitch: () => void }) {
   const ativos     = torneios.filter(t => t.status === 'em_andamento')
   const inscricoes = torneios.filter(t => t.status === 'inscricoes')
   const recentes   = torneios.filter(t => t.status === 'finalizado').slice(0, 3)
@@ -124,6 +162,28 @@ function HomeDashboard({ nomeDisplay, torneios, topBladers }: { nomeDisplay: str
           <QuickCard to="/rankings"      icon="📊"  title="Rankings"    desc="Sua posição e a dos outros Bladers." />
           <QuickCard to="/bladers"       icon="👤"  title="Bladers"     desc="Perfis, estatísticas e winrates." />
           <QuickCard to="/perfil/editar" icon="✏️"  title="Meu Perfil"  desc="Edite seu perfil e Beyblade favorito." />
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <button
+            onClick={onShowPitch}
+            style={{
+              width: '100%', cursor: 'pointer', border: '1px solid rgba(43,91,232,0.3)',
+              borderRadius: 12, background: 'rgba(43,91,232,0.05)', padding: '14px 20px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              transition: 'border-color 0.15s, background 0.15s',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(43,91,232,0.1)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(43,91,232,0.6)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(43,91,232,0.05)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(43,91,232,0.3)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 20 }}>🚀</span>
+              <div style={{ textAlign: 'left' }}>
+                <p style={{ fontFamily: 'Rajdhani', fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 1 }}>O que o LaBey faz?</p>
+                <p style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Todas as funcionalidades da plataforma</p>
+              </div>
+            </div>
+            <span style={{ color: 'var(--color-blue-light)', fontSize: 16 }}>→</span>
+          </button>
         </div>
       </section>
 
@@ -227,6 +287,7 @@ export default function Home() {
   const { user, perfil, loading } = useAuth()
   const [torneios, setTorneios] = useState<Torneio[]>([])
   const [topBladers, setTopBladers] = useState<EstatisticasBlade[]>([])
+  const [showPitch, setShowPitch] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -249,7 +310,8 @@ export default function Home() {
   if (!user) return (
     <>
       <Navbar />
-      <HomePublica />
+      <HomePublica onShowPitch={() => setShowPitch(true)} />
+      {showPitch && <AppPresentacaoModal onClose={() => setShowPitch(false)} />}
     </>
   )
 
@@ -258,7 +320,8 @@ export default function Home() {
   return (
     <>
       <Navbar />
-      <HomeDashboard nomeDisplay={nomeDisplay} torneios={torneios} topBladers={topBladers} />
+      <HomeDashboard nomeDisplay={nomeDisplay} torneios={torneios} topBladers={topBladers} onShowPitch={() => setShowPitch(true)} />
+      {showPitch && <AppPresentacaoModal onClose={() => setShowPitch(false)} />}
     </>
   )
 }
