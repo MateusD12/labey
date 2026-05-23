@@ -47,13 +47,13 @@ function TorneioRow({ t }: { t: Torneio }) {
 function QuickCard({ to, icon, title, desc, highlight }: { to: string; icon: string; title: string; desc: string; highlight?: boolean }) {
   return (
     <Link to={to} style={{ textDecoration: 'none' }}>
-      <div className="card" style={{ padding: '24px 20px', textAlign: 'center', height: '100%', border: highlight ? '1px solid var(--color-blue-primary)' : '1px solid var(--color-border)', background: highlight ? 'rgba(43,91,232,0.07)' : 'var(--color-bg-card)', transition: 'transform 0.15s', cursor: 'pointer' }}
+      <div className="card" style={{ padding: '16px 12px', textAlign: 'center', border: highlight ? '1px solid var(--color-blue-primary)' : '1px solid var(--color-border)', background: highlight ? 'rgba(43,91,232,0.07)' : 'var(--color-bg-card)', transition: 'transform 0.15s', cursor: 'pointer' }}
         onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)' }}
         onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)' }}
       >
-        <div style={{ fontSize: 36, marginBottom: 12 }}>{icon}</div>
-        <h3 style={{ fontFamily: 'Rajdhani', fontSize: 18, fontWeight: 700, marginBottom: 6, color: highlight ? 'var(--color-blue-light)' : 'var(--color-text-primary)' }}>{title}</h3>
-        <p style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--color-text-muted)', lineHeight: 1.5 }}>{desc}</p>
+        <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
+        <h3 style={{ fontFamily: 'Rajdhani', fontSize: 16, fontWeight: 700, marginBottom: 4, color: highlight ? 'var(--color-blue-light)' : 'var(--color-text-primary)' }}>{title}</h3>
+        <p style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.4 }}>{desc}</p>
       </div>
     </Link>
   )
@@ -157,12 +157,12 @@ function HomeDashboard({ nomeDisplay, torneios, topBladers, onShowPitch }: { nom
 
       <section style={{ marginBottom: 44 }}>
         <SectionLabel>Acesso rápido</SectionLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
-          <QuickCard to="/torneios"      icon="⚔️"  title="Torneios"    desc="Veja todos os torneios ativos e histórico."  highlight />
-          <QuickCard to="/rankings"      icon="📊"  title="Rankings"    desc="Sua posição e a dos outros Bladers." />
-          <QuickCard to="/bladers"       icon="👤"  title="Bladers"     desc="Perfis, estatísticas e winrates." />
-          <QuickCard to="/colecao"       icon="🗂️"  title="Arsenal"     desc="Seus decks, peças e coleção." />
-          <QuickCard to="/perfil/editar" icon="✏️"  title="Meu Perfil"  desc="Edite seu perfil e Beyblade favorito." />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+          <QuickCard to="/torneios"      icon="⚔️"  title="Torneios"    desc="Torneios ativos e histórico"  highlight />
+          <QuickCard to="/rankings"      icon="📊"  title="Rankings"    desc="Sua posição no ranking" />
+          <QuickCard to="/bladers"       icon="👤"  title="Bladers"     desc="Perfis e winrates" />
+          <QuickCard to="/colecao"       icon="🗂️"  title="Arsenal"     desc="Decks e coleção" />
+          <QuickCard to="/perfil/editar" icon="✏️"  title="Meu Perfil"  desc="Edite seu perfil" />
         </div>
         <div style={{ marginTop: 14 }}>
           <button
@@ -188,8 +188,7 @@ function HomeDashboard({ nomeDisplay, torneios, topBladers, onShowPitch }: { nom
         </div>
       </section>
 
-      <style>{`.home-main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; } @media(max-width:700px){ .home-main-grid { grid-template-columns: 1fr !important; } }`}</style>
-      <div className="home-main-grid">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 28, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
           {ativos.length > 0 && (
             <section>
