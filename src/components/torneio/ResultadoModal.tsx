@@ -14,6 +14,30 @@ export function ResultadoModal({ partida, onClose, onSaved }: Props) {
   const [score2, setScore2] = useState('')
   const [saving, setSaving] = useState(false)
 
+  const handleWO = async (vencedorId: string | null | undefined) => {
+    if (!vencedorId) return
+    setSaving(true)
+    await supabase.from('partidas').update({
+      vencedor_id: vencedorId,
+      status: 'w.o.',
+    }).eq('id', partida.id)
+
+    if (partida.numero_rodada && partida.posicao_bracket !== null && partida.posicao_bracket !== undefined) {
+      const nextRodada = partida.numero_rodada + 1
+      const nextPos = Math.floor(partida.posicao_bracket / 2)
+      const slot = partida.posicao_bracket % 2 === 0 ? 'blade1_id' : 'blade2_id'
+      await supabase.from('partidas')
+        .update({ [slot]: vencedorId })
+        .eq('torneio_id', partida.torneio_id)
+        .eq('numero_rodada', nextRodada)
+        .eq('posicao_bracket', nextPos)
+    }
+
+    setSaving(false)
+    onSaved()
+    onClose()
+  }
+
   const handleSave = async () => {
     const s1 = parseInt(score1) || 0
     const s2 = parseInt(score2) || 0
@@ -85,6 +109,18 @@ export function ResultadoModal({ partida, onClose, onSaved }: Props) {
         <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ width: '100%' }}>
           {saving ? 'Salvando...' : 'Salvar Resultado'}
         </button>
+
+        <div style={{ marginTop: 12, borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
+          <p style={{ fontFamily: 'DM Sans', fontSize: '11px', color: 'var(--color-text-muted)', marginBottom: 8 }}>W.O. — ausência / desclassificação</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <button onClick={() => handleWO(partida.blade1_id)} disabled={saving} style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px', cursor: 'pointer', color: 'var(--color-text-secondary)', fontFamily: 'DM Sans', fontSize: '12px' }}>
+              W.O. → {partida.blade1?.nome_display ?? 'Blade 1'}
+            </button>
+            <button onClick={() => handleWO(partida.blade2_id)} disabled={saving} style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px', cursor: 'pointer', color: 'var(--color-text-secondary)', fontFamily: 'DM Sans', fontSize: '12px' }}>
+              W.O. → {partida.blade2?.nome_display ?? 'Blade 2'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
