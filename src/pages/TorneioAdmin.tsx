@@ -129,8 +129,19 @@ export default function TorneioAdmin() {
     }
   }
 
+  const autoSeed = async () => {
+    const { data: rt } = await supabase.from('ranking_torneios').select('ranking_id').eq('torneio_id', id).limit(1).maybeSingle()
+    if (!rt) { setMsg('Vincule um ranking primeiro para usar auto-seed.'); return }
+    const { data: entradas } = await supabase.from('ranking_entradas').select('blade_id, posicao').eq('ranking_id', rt.ranking_id).order('posicao', { ascending: true })
+    if (!entradas?.length) { setMsg('Ranking sem entradas.'); return }
+    const posMap: Record<string, number> = Object.fromEntries(entradas.map(e => [e.blade_id, e.posicao]))
+    await Promise.all(inscricoes.map(ins => supabase.from('inscricoes').update({ seed: posMap[ins.blade_id] ?? 9999 }).eq('id', ins.id)))
+    setMsg('Seeds atribuidos pelo ranking!')
+  }
+
   const gerarPartidas = async () => {
-    const ids = inscricoes.map(i => i.blade_id)
+    const inscricoesSorted = [...inscricoes].sort((a, b) => (a.seed ?? 9999) - (b.seed ?? 9999))
+    const ids = inscricoesSorted.map(i => i.blade_id)
     if (ids.length < 2) { setMsg('Mínimo 2 participantes aprovados.'); return }
     let partidas: any[] = []
     const fmt = torneio.formato
@@ -169,13 +180,17 @@ export default function TorneioAdmin() {
           <h2 style={{ fontFamily: 'Rajdhani', fontSize: '18px', marginBottom: 16 }}>Ações</h2>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {torneio.status === 'rascunho' && <button onClick={() => atualizarStatus('inscricoes')} className="btn-primary">Abrir inscrições</button>}
+            {torneio.status === 'inscricoes' && linkedRankingIds.size > 0 && <button onClick={autoSeed} style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 500 }}>Seed pelo ranking</button>}
             {torneio.status === 'inscricoes' && <button onClick={gerarPartidas} className="btn-primary">Gerar partidas e iniciar</button>}
             {torneio.status === 'em_andamento' && torneio.formato === 'copa_do_mundo' && (
               <button onClick={avancarParaFaseEliminatoria} className="btn-primary">Avancar para fase eliminatoria</button>
             )}
-            {torneio.status === 'em_andamento' && torneio.formato === 'suico' && (
-              <button onClick={gerarProximaRodadaSuica} className="btn-primary">Gerar proxima rodada</button>
-            )}
+            {torneio.status === 'em_andamento' && torneio.formato === 'suico' && (() => {
+              const rodadaAtual = partidas.length ? Math.max(...partidas.map(p => p.numero_rodada || 0)) : 0
+              return rodadaAtual < torneio.num_rodadas_suico
+                ? <button onClick={gerarProximaRodadaSuica} className="btn-primary">Gerar proxima rodada ({rodadaAtual}/{torneio.num_rodadas_suico})</button>
+                : <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--color-text-muted)', padding: '10px 0' }}>Todas as {torneio.num_rodadas_suico} rodadas geradas</span>
+            })()}
             {torneio.status === 'em_andamento' && <button onClick={() => atualizarStatus('finalizado')} style={{ background: 'var(--color-success)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 500 }}>Finalizar torneio</button>}
           </div>
         </div>
