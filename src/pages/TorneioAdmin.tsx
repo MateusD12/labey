@@ -302,9 +302,25 @@ export default function TorneioAdmin() {
         )}
 
         <div className="card">
-          <h2 style={{ fontFamily: 'Rajdhani', fontSize: '18px', marginBottom: 16 }}>Participantes Aprovados ({inscricoes.length})</h2>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {inscricoes.map(ins => <span key={ins.id} style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 6, padding: '4px 12px', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-secondary)' }}>{ins.perfil?.nome_display ?? ins.blade_id.slice(0, 8)}</span>)}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+            <h2 style={{ fontFamily: 'Rajdhani', fontSize: '18px', margin: 0 }}>Participantes Aprovados ({inscricoes.length})</h2>
+            <span style={{ fontFamily: 'DM Sans', fontSize: 12, color: '#22c55e' }}>
+              {inscricoes.filter(i => i.checked_in).length}/{inscricoes.length} com check-in
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {inscricoes.map(ins => (
+              <div key={ins.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {ins.perfil?.avatar_url && <img src={ins.perfil.avatar_url} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} alt="" />}
+                  <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--color-text-primary)' }}>{ins.perfil?.nome_display ?? ins.blade_id.slice(0, 8)}</span>
+                  {ins.seed && <span style={{ fontFamily: 'DM Sans', fontSize: 10, color: 'var(--color-text-muted)', background: 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: 4 }}>#{ins.seed}</span>}
+                </div>
+                <span style={{ fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600, color: ins.checked_in ? '#22c55e' : 'var(--color-text-muted)', background: ins.checked_in ? '#22c55e18' : 'transparent', border: ins.checked_in ? '1px solid #22c55e33' : '1px solid transparent', padding: '2px 8px', borderRadius: 20 }}>
+                  {ins.checked_in ? '✓ Check-in' : 'Aguardando'}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </main>

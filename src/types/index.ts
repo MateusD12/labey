@@ -52,6 +52,8 @@ export interface Inscricao {
   status: 'pendente' | 'aprovado' | 'rejeitado'
   seed?: number | null
   grupo?: string | null
+  checked_in?: boolean
+  checked_in_at?: string | null
   perfil?: Perfil
 }
 

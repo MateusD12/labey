@@ -6,6 +6,7 @@ import { EstatisticasCard } from '@/components/perfil/EstatisticasCard'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { fetchUserDecks } from '@/lib/beyblades'
+import { Badges } from '@/components/perfil/Badges'
 import type { Perfil as PerfilType, EstatisticasBlade, Deck } from '@/types'
 
 export default function Perfil() {
@@ -70,6 +71,7 @@ export default function Perfil() {
                 <p style={{ fontFamily: 'Rajdhani', fontSize: '18px', fontWeight: 700 }}>{perfil.beyblade_favorito}</p>
               </div>
             )}
+            {stats && <Badges stats={stats} />}
           </div>
           {stats && <EstatisticasCard stats={stats} />}
         </div>
