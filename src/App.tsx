@@ -20,6 +20,9 @@ import Comunidade from '@/pages/Comunidade'
 import Admin from '@/pages/Admin'
 import AdminUsuarios from '@/pages/AdminUsuarios'
 import AdminRankings from '@/pages/AdminRankings'
+import Colecao from '@/pages/Colecao'
+import Combos from '@/pages/Combos'
+import Decks from '@/pages/Decks'
 
 function PushSetup() {
   usePushNotifications()
@@ -54,6 +57,11 @@ export default function App() {
           <Route path="/admin" element={<PrivateRoute><Admin /></PrivateRoute>} />
           <Route path="/admin/usuarios" element={<PrivateRoute><AdminUsuarios /></PrivateRoute>} />
           <Route path="/admin/rankings" element={<PrivateRoute><AdminRankings /></PrivateRoute>} />
+
+          {/* BeybladeCombos integration */}
+          <Route path="/colecao" element={<Colecao />} />
+          <Route path="/combos" element={<Combos />} />
+          <Route path="/decks" element={<PrivateRoute><Decks /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

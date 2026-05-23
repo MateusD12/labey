@@ -5,13 +5,15 @@ import { PerfilCard } from '@/components/perfil/PerfilCard'
 import { EstatisticasCard } from '@/components/perfil/EstatisticasCard'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import type { Perfil as PerfilType, EstatisticasBlade } from '@/types'
+import { fetchUserDecks } from '@/lib/beyblades'
+import type { Perfil as PerfilType, EstatisticasBlade, Deck } from '@/types'
 
 export default function Perfil() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const [perfil, setPerfil] = useState<PerfilType | null>(null)
   const [stats, setStats] = useState<EstatisticasBlade | null>(null)
+  const [decks, setDecks] = useState<Deck[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
 
@@ -25,6 +27,11 @@ export default function Perfil() {
       if (s) setStats(s as EstatisticasBlade)
       setLoading(false)
     })
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    fetchUserDecks(id).then(setDecks).catch(() => {})
   }, [id])
 
   if (loading) return (
@@ -62,6 +69,31 @@ export default function Perfil() {
           </div>
           {stats && <EstatisticasCard stats={stats} />}
         </div>
+
+        {decks.length > 0 && (
+          <div style={{ marginTop: 32 }}>
+            <h2 style={{ fontFamily: 'Rajdhani', fontWeight: 700, fontSize: 22, color: 'var(--color-text-primary)', marginBottom: 16 }}>
+              Arsenal
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+              {decks.map(deck => {
+                const totalW = deck.beyblades.reduce((s, b) => s + b.wins, 0)
+                const totalL = deck.beyblades.reduce((s, b) => s + b.losses, 0)
+                const wr = totalW + totalL > 0 ? Math.round((totalW / (totalW + totalL)) * 100) : null
+                return (
+                  <div key={deck.id} style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 10, padding: 14 }}>
+                    <div style={{ fontFamily: 'Rajdhani', fontWeight: 700, fontSize: 16, color: 'var(--color-text-primary)', marginBottom: 4 }}>{deck.name}</div>
+                    <div style={{ fontFamily: 'DM Sans', fontSize: 12, color: 'var(--color-text-muted)' }}>
+                      {deck.beyblades.length} beyblade{deck.beyblades.length !== 1 ? 's' : ''}
+                      {wr !== null ? ` · ${wr}% WR` : ''}
+                      {' · '}W {totalW} / L {totalL}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </main>
     </>
   )

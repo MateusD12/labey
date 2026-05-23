@@ -8,6 +8,8 @@ const NAV_LINKS = [
   { to: '/torneios',   label: 'Torneios' },
   { to: '/rankings',   label: 'Rankings' },
   { to: '/bladers',    label: 'Bladers' },
+  { to: '/combos',     label: 'Combos' },
+  { to: '/colecao',    label: 'Coleção' },
   { to: '/comunidade', label: 'Comunidade' },
 ]
 

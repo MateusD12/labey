@@ -140,3 +140,28 @@ export interface ReacaoAgregada {
   count: number
   eu_reagi: boolean
 }
+
+// ─── BeybladeCombos integration ───────────────────────────────────────────────
+
+export interface BeybladeRow {
+  id?: string
+  geracao: string
+  serie: string
+  peca: string
+  tipo: string
+  beyblade: string
+  localizacao?: string
+  image_id?: string
+  storage_url?: string
+  user_id?: string
+}
+
+export interface DeckPart { rowId: string }
+export interface DeckBey { id: string; label: string; parts: DeckPart[]; wins: number; losses: number }
+export interface Deck { id: string; name: string; beyblades: DeckBey[] }
+
+export type SystemName = 'BX/UX' | 'CX' | 'CX Expend'
+
+export interface ComboPart extends BeybladeRow {
+  imageUrl: string | null
+}
