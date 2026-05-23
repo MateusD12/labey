@@ -27,14 +27,26 @@ const FEATURES = [
   {
     icon: '🧑‍⚖️',
     title: 'Sistema de Juízes',
-    desc: 'Admin designa árbitros para cada partida. Distribuição round-robin automática. O juiz é notificado no celular quando a sua partida está prestes a começar.',
+    desc: 'Admin designa árbitros para cada partida com distribuição round-robin automática. Juízes e jogadores recebem push quando a partida começa.',
     color: '#a78bfa',
   },
   {
     icon: '🔔',
     title: 'Push Notifications',
-    desc: 'Notificações nativas no celular mesmo com o app fechado. Juízes e participantes são avisados na hora certa, sem precisar olhar a tela.',
+    desc: 'Notificações nativas no celular mesmo com o app fechado. Juízes e os dois jogadores da próxima partida são avisados automaticamente.',
     color: '#f59e0b',
+  },
+  {
+    icon: '✅',
+    title: 'Check-in de Participantes',
+    desc: 'Participantes confirmam presença pelo celular. O organizador vê em tempo real quem chegou antes de iniciar o torneio.',
+    color: '#22c55e',
+  },
+  {
+    icon: '⏱️',
+    title: 'Timer de Partida',
+    desc: 'Cronômetro regressivo flutuante para controlar o tempo de cada battle. Presets de 1, 2, 3 e 5 minutos com alerta visual ao fim.',
+    color: '#ef4444',
   },
   {
     icon: '📱',
@@ -44,9 +56,21 @@ const FEATURES = [
   },
   {
     icon: '👤',
-    title: 'Perfis & Estatísticas',
-    desc: 'Cada Blader tem perfil com avatar, cidade, Beyblade favorito e histórico completo de batalhas e torneios.',
+    title: 'Perfis & Conquistas',
+    desc: 'Perfil com avatar, stats completos e sistema de badges — Campeão, Veterano, Em Chamas, Imparável e mais.',
     color: '#ec4899',
+  },
+  {
+    icon: '🎲',
+    title: 'Gerador de Combos',
+    desc: 'Sorteia dois combos competitivos sem peças repetidas. Suporta BX/UX, CX e CX Expend. Filtro por geração e histórico dos últimos sorteios.',
+    color: '#8b5cf6',
+  },
+  {
+    icon: '🗂️',
+    title: 'Coleção & Arsenal',
+    desc: 'Cadastre suas peças com foto, visualize por Beyblade e monte decks com W/L tracker. Tudo salvo na nuvem.',
+    color: '#f59e0b',
   },
   {
     icon: '🌐',
@@ -59,10 +83,14 @@ const FEATURES = [
 const ADMIN_FEATURES = [
   { icon: '✅', text: 'Aprovação de inscrições com um clique' },
   { icon: '🔢', text: 'Seeds automáticos baseados no ranking' },
-  { icon: '🎯', text: 'Atribuição de juízes round-robin' },
+  { icon: '🎯', text: 'Atribuição de juízes round-robin automática' },
   { icon: '🔄', text: 'Geração automática de todas as rodadas' },
+  { icon: '📋', text: 'Check-in com visão de presença em tempo real' },
+  { icon: '📊', text: 'Classificação de grupos pública para todos' },
+  { icon: '📲', text: 'QR Code de inscrição + botão Compartilhar' },
+  { icon: '⏱️', text: 'Timer de partida flutuante configurável' },
   { icon: '🏅', text: 'Vinculação a múltiplos rankings' },
-  { icon: '⚙️', text: 'Configuração de pontuação e grupos' },
+  { icon: '⚙️', text: 'Configuração de pontuação, grupos e rodadas' },
   { icon: 'W.O.', text: 'Registro de W.O. com avanço no bracket' },
   { icon: '📡', text: 'Realtime — bracket sincronizado em todos os devices' },
 ]
@@ -164,8 +192,10 @@ export function AppPresentacaoModal({ onClose }: Props) {
               {[
                 { label: '6 formatos', sub: 'de torneio' },
                 { label: 'Tempo real', sub: 'brackets ao vivo' },
+                { label: 'Check-in', sub: 'presença digital' },
                 { label: 'PWA nativo', sub: 'sem App Store' },
-                { label: 'Push alerts', sub: 'mesmo offline' },
+                { label: 'Push alerts', sub: 'jogador + juiz' },
+                { label: 'Combos & Decks', sub: 'gestão de peças' },
               ].map(s => (
                 <div key={s.label} style={{
                   background: 'rgba(43,91,232,0.12)', border: '1px solid rgba(43,91,232,0.3)',
