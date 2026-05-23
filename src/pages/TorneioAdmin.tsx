@@ -13,7 +13,7 @@ import type { Inscricao, Ranking, TorneioJuiz, Perfil } from '@/types'
 export default function TorneioAdmin() {
   const { id } = useParams<{ id: string }>()
   const { perfil } = useAuth()
-  const { torneio, inscricoes, partidas, loading, reload } = useTorneio(id!)
+  const { torneio, inscricoes, partidas, loading, reload, partidasError } = useTorneio(id!)
   const [pendentes, setPendentes] = useState<Inscricao[]>([])
   const [listaEspera, setListaEspera] = useState<Inscricao[]>([])
   const [allRankings, setAllRankings] = useState<Ranking[]>([])
@@ -244,6 +244,14 @@ export default function TorneioAdmin() {
         <h1 style={{ fontFamily: 'Rajdhani', fontSize: '28px', fontWeight: 700, marginBottom: 8 }}>Admin — {torneio.nome}</h1>
         <p style={{ color: 'var(--color-text-muted)', fontFamily: 'DM Sans', fontSize: '13px', marginBottom: 32 }}>Status: {torneio.status}</p>
         {msg && <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid var(--color-success)', borderRadius: 8, padding: '10px 16px', marginBottom: 24, color: 'var(--color-success)', fontFamily: 'DM Sans', fontSize: '13px' }}>{msg}</div>}
+        {!loading && torneio.status === 'em_andamento' && partidas.length === 0 && (
+          <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8, padding: '12px 16px', marginBottom: 24, fontFamily: 'DM Sans', fontSize: '13px' }}>
+            <div style={{ color: 'var(--color-warning)', fontWeight: 600, marginBottom: 6 }}>⚠️ Torneio em andamento sem partidas detectadas</div>
+            {partidasError && <div style={{ color: 'var(--color-danger)', fontSize: 12, marginBottom: 8 }}>Erro Supabase: {partidasError}</div>}
+            <div style={{ color: 'var(--color-text-muted)', fontSize: 12, marginBottom: 10 }}>As partidas podem não ter sido salvas, ou houve um erro ao carregá-las. Tente recarregar ou resete o torneio para inscrições para gerar novamente.</div>
+            <button onClick={reload} style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--color-warning)', border: '1px solid rgba(245,158,11,0.4)', padding: '6px 14px', borderRadius: 6, cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 12, fontWeight: 500 }}>↻ Recarregar partidas</button>
+          </div>
+        )}
 
         <div className="card" style={{ marginBottom: 24 }}>
           <h2 style={{ fontFamily: 'Rajdhani', fontSize: '18px', marginBottom: 16 }}>Ações</h2>
@@ -260,7 +268,10 @@ export default function TorneioAdmin() {
                 ? <button onClick={gerarProximaRodadaSuica} className="btn-primary">{rodadaAtual === 0 ? 'Gerar rodada 1' : `Gerar próxima rodada (${rodadaAtual}/${torneio.num_rodadas_suico})`}</button>
                 : <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--color-text-muted)', padding: '10px 0' }}>Todas as {torneio.num_rodadas_suico} rodadas geradas</span>
             })()}
-            {torneio.status === 'em_andamento' && <button onClick={() => atualizarStatus('finalizado')} style={{ background: 'var(--color-success)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 500 }}>Finalizar torneio</button>}
+            {torneio.status === 'em_andamento' && partidas.length === 0 && (
+              <button onClick={() => atualizarStatus('inscricoes')} style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--color-warning)', border: '1px solid rgba(245,158,11,0.4)', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 500 }}>⚠️ Resetar para Inscrições</button>
+            )}
+            {torneio.status === 'em_andamento' && partidas.length > 0 && <button onClick={() => atualizarStatus('finalizado')} style={{ background: 'var(--color-success)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 500 }}>Finalizar torneio</button>}
           </div>
         </div>
 
