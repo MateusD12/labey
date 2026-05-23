@@ -146,6 +146,14 @@ export function AppPresentacaoModal({ onClose }: Props) {
         @keyframes labey-pulse-dot { 0%,100% { opacity: 1; transform: scale(1) } 50% { opacity: 0.5; transform: scale(0.85) } }
         .labey-feat-card { transition: transform 0.18s, border-color 0.18s; }
         .labey-feat-card:hover { transform: translateY(-4px); }
+        .labey-feat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+        .labey-admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+        .labey-roadmap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+        @media(max-width:520px){
+          .labey-feat-grid { grid-template-columns: 1fr !important; }
+          .labey-admin-grid { grid-template-columns: 1fr !important; }
+          .labey-roadmap-grid { grid-template-columns: 1fr 1fr !important; }
+        }
       `}</style>
 
       {/* Backdrop */}
@@ -251,7 +259,7 @@ export function AppPresentacaoModal({ onClose }: Props) {
               <h2 style={{ fontFamily: 'Rajdhani', fontSize: 20, fontWeight: 700, color: '#fff', letterSpacing: '0.5px' }}>Funcionalidades</h2>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+            <div className="labey-feat-grid">
               {FEATURES.map(f => (
                 <div
                   key={f.title}
@@ -280,18 +288,15 @@ export function AppPresentacaoModal({ onClose }: Props) {
               <h2 style={{ fontFamily: 'Rajdhani', fontSize: 20, fontWeight: 700, color: '#fff', letterSpacing: '0.5px' }}>Painel do Organizador</h2>
             </div>
 
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(43,91,232,0.05) 100%)',
-              border: '1px solid rgba(99,102,241,0.2)',
-              borderRadius: 14, padding: '24px',
-              display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10,
-            }}>
+            <div style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(43,91,232,0.05) 100%)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 14, padding: '24px' }}>
+              <div className="labey-admin-grid">
               {ADMIN_FEATURES.map(a => (
                 <div key={a.text} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                   <span style={{ fontFamily: a.icon === 'W.O.' ? 'Rajdhani' : 'inherit', fontSize: a.icon === 'W.O.' ? 11 : 16, color: '#a78bfa', flexShrink: 0, marginTop: 1, fontWeight: 700 }}>{a.icon}</span>
                   <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.4 }}>{a.text}</span>
                 </div>
               ))}
+              </div>
             </div>
           </div>
 
@@ -331,12 +336,12 @@ export function AppPresentacaoModal({ onClose }: Props) {
               <div style={{ width: 3, height: 20, background: 'linear-gradient(180deg, #FFD700, #f59e0b)', borderRadius: 2 }} />
               <h2 style={{ fontFamily: 'Rajdhani', fontSize: 20, fontWeight: 700, color: '#fff', letterSpacing: '0.5px' }}>Próximos Passos</h2>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 10 }}>
+            <div className="labey-roadmap-grid">
               {[
                 { icon: '📹', text: 'Transmissão ao vivo integrada', status: 'planned' },
                 { icon: '🤝', text: 'Patrocinadores e premiações digitais', status: 'planned' },
                 { icon: '🌎', text: 'Torneios internacionais online', status: 'planned' },
-                { icon: '🃏', text: 'Coleção de cartas de Bladers', status: 'planned' },
+                { icon: '🎒', text: 'Deck de batalha: 3 Beyblades selecionados para o torneio', status: 'planned' },
                 { icon: '📱', text: 'App nativo iOS / Android', status: 'planned' },
                 { icon: '🏪', text: 'Marketplace de peças Beyblade', status: 'planned' },
               ].map(r => (

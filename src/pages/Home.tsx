@@ -157,10 +157,11 @@ function HomeDashboard({ nomeDisplay, torneios, topBladers, onShowPitch }: { nom
 
       <section style={{ marginBottom: 44 }}>
         <SectionLabel>Acesso rápido</SectionLabel>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
           <QuickCard to="/torneios"      icon="⚔️"  title="Torneios"    desc="Veja todos os torneios ativos e histórico."  highlight />
           <QuickCard to="/rankings"      icon="📊"  title="Rankings"    desc="Sua posição e a dos outros Bladers." />
           <QuickCard to="/bladers"       icon="👤"  title="Bladers"     desc="Perfis, estatísticas e winrates." />
+          <QuickCard to="/colecao"       icon="🗂️"  title="Arsenal"     desc="Seus decks, peças e coleção." />
           <QuickCard to="/perfil/editar" icon="✏️"  title="Meu Perfil"  desc="Edite seu perfil e Beyblade favorito." />
         </div>
         <div style={{ marginTop: 14 }}>
@@ -187,7 +188,8 @@ function HomeDashboard({ nomeDisplay, torneios, topBladers, onShowPitch }: { nom
         </div>
       </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28, alignItems: 'start' }}>
+      <style>{`.home-main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; } @media(max-width:700px){ .home-main-grid { grid-template-columns: 1fr !important; } }`}</style>
+      <div className="home-main-grid">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
           {ativos.length > 0 && (
             <section>
