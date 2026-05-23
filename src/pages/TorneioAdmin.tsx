@@ -341,27 +341,31 @@ export default function TorneioAdmin() {
                   const atribuido = juizes.find(j => j.blade_id === jg.id)
                   const isParticipante = inscricoes.some(i => i.blade_id === jg.id)
                   return (
-                    <div key={jg.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 8, background: atribuido ? (atribuido.tipo === 'titular' ? 'rgba(43,91,232,0.08)' : 'rgba(245,158,11,0.07)') : 'var(--color-bg-secondary)', border: '1px solid', borderColor: atribuido ? (atribuido.tipo === 'titular' ? 'rgba(43,91,232,0.3)' : 'rgba(245,158,11,0.3)') : 'var(--color-border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 16 }}>⚖️</span>
-                        <div>
-                          <span style={{ fontFamily: 'DM Sans', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>{jg.nome_display}</span>
-                          <span style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)', marginLeft: 6 }}>@{jg.username}</span>
-                          {isParticipante && <span style={{ fontFamily: 'DM Sans', fontSize: 10, marginLeft: 8, background: 'rgba(245,158,11,0.15)', color: 'var(--color-warning)', padding: '1px 6px', borderRadius: 10 }}>também participa</span>}
+                    <div key={jg.id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, background: atribuido ? (atribuido.tipo === 'titular' ? 'rgba(43,91,232,0.08)' : 'rgba(245,158,11,0.07)') : 'var(--color-bg-secondary)', border: '1px solid', borderColor: atribuido ? (atribuido.tipo === 'titular' ? 'rgba(43,91,232,0.3)' : 'rgba(245,158,11,0.3)') : 'var(--color-border)' }}>
+                      {/* Identidade — ocupa o espaço disponível e nunca transborda */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 140px', minWidth: 0 }}>
+                        <span style={{ fontSize: 15, flexShrink: 0 }}>⚖️</span>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontFamily: 'DM Sans', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {jg.nome_display}
+                            {isParticipante && <span style={{ fontFamily: 'DM Sans', fontSize: 10, marginLeft: 6, background: 'rgba(245,158,11,0.15)', color: 'var(--color-warning)', padding: '1px 5px', borderRadius: 8, whiteSpace: 'nowrap' }}>participa</span>}
+                          </div>
+                          <div style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>@{jg.username}</div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      {/* Botões — sempre na mesma linha se couber, senão quebra para baixo */}
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         {atribuido ? (
                           <>
-                            <button onClick={() => addJuiz(jg.id, atribuido.tipo === 'titular' ? 'reserva' : 'titular')} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600, background: atribuido.tipo === 'titular' ? 'rgba(43,91,232,0.2)' : 'rgba(245,158,11,0.2)', color: atribuido.tipo === 'titular' ? 'var(--color-blue-light)' : 'var(--color-warning)' }}>
+                            <button onClick={() => addJuiz(jg.id, atribuido.tipo === 'titular' ? 'reserva' : 'titular')} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600, background: atribuido.tipo === 'titular' ? 'rgba(43,91,232,0.2)' : 'rgba(245,158,11,0.2)', color: atribuido.tipo === 'titular' ? 'var(--color-blue-light)' : 'var(--color-warning)' }}>
                               {atribuido.tipo === 'titular' ? '★ Titular' : '◎ Reserva'}
                             </button>
-                            <button onClick={() => removeJuiz(atribuido.id)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--color-border)', background: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontFamily: 'DM Sans', fontSize: 11 }}>Remover</button>
+                            <button onClick={() => removeJuiz(atribuido.id)} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid var(--color-border)', background: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontFamily: 'DM Sans', fontSize: 11 }}>✕</button>
                           </>
                         ) : (
                           <>
-                            <button onClick={() => addJuiz(jg.id, 'titular')} style={{ padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600, background: 'rgba(43,91,232,0.12)', color: 'var(--color-blue-light)' }}>+ Titular</button>
-                            <button onClick={() => addJuiz(jg.id, 'reserva')} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.07)', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600, color: 'var(--color-warning)' }}>+ Reserva</button>
+                            <button onClick={() => addJuiz(jg.id, 'titular')} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600, background: 'rgba(43,91,232,0.12)', color: 'var(--color-blue-light)' }}>+ Titular</button>
+                            <button onClick={() => addJuiz(jg.id, 'reserva')} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.07)', cursor: 'pointer', fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600, color: 'var(--color-warning)' }}>+ Reserva</button>
                           </>
                         )}
                       </div>
