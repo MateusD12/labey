@@ -293,13 +293,37 @@ export default function TorneioAdmin() {
         </div>
 
         <div className="card" style={{ marginBottom: 24 }}>
-          <h2 style={{ fontFamily: 'Rajdhani', fontSize: '18px', marginBottom: 8 }}>Juizes do torneio</h2>
-          <p style={{ fontFamily: 'DM Sans', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: 14 }}>Adicione juizes e distribua-os automaticamente pelas partidas.</p>
+          <h2 style={{ fontFamily: 'Rajdhani', fontSize: '18px', marginBottom: 4 }}>Juízes do torneio</h2>
+          <p style={{ fontFamily: 'DM Sans', fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: 14 }}>Selecione quem vai julgar as partidas. Juízes podem ser participantes ou qualquer blader cadastrado.</p>
+
+          {/* Seleção rápida: participantes aprovados */}
+          {inscricoes.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Participantes do torneio</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {inscricoes.map(ins => {
+                  const jaJuiz = juizes.some(j => j.blade_id === ins.blade_id)
+                  return (
+                    <button
+                      key={ins.blade_id}
+                      onClick={() => jaJuiz ? undefined : addJuiz(ins.blade_id)}
+                      disabled={jaJuiz}
+                      style={{ padding: '5px 12px', borderRadius: 20, fontFamily: 'DM Sans', fontSize: 12, fontWeight: 500, cursor: jaJuiz ? 'default' : 'pointer', border: jaJuiz ? '1px solid rgba(43,91,232,0.4)' : '1px solid var(--color-border)', background: jaJuiz ? 'rgba(43,91,232,0.12)' : 'var(--color-bg-secondary)', color: jaJuiz ? 'var(--color-blue-light)' : 'var(--color-text-secondary)', transition: 'all 0.12s' }}
+                    >
+                      {jaJuiz ? '✓ ' : '+ '}{ins.perfil?.nome_display ?? ins.perfil?.username ?? ins.blade_id.slice(0,8)}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Busca por outros bladers (não participantes) */}
           <div style={{ position: 'relative', marginBottom: 12 }}>
             <input
               value={jSearch}
               onChange={e => searchBladers(e.target.value)}
-              placeholder="Buscar blader pelo nome..."
+              placeholder="Ou buscar outro blader pelo nome..."
               style={{ width: '100%', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '10px 14px', color: 'var(--color-text-primary)', fontFamily: 'DM Sans', fontSize: '13px', boxSizing: 'border-box' }}
             />
             {jResults.length > 0 && (
@@ -313,16 +337,21 @@ export default function TorneioAdmin() {
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: juizes.length ? 14 : 0 }}>
-            {juizes.map(j => (
-              <span key={j.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(43,91,232,0.12)', border: '1px solid rgba(43,91,232,0.3)', borderRadius: 20, padding: '4px 10px 4px 12px', fontFamily: 'DM Sans', fontSize: 12, color: 'var(--color-blue-light)' }}>
-                {j.perfil?.username}
-                <button onClick={() => removeJuiz(j.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
-              </span>
-            ))}
-          </div>
+
+          {/* Juízes selecionados */}
           {juizes.length > 0 && (
-            <button onClick={distribuirJuizes} className="btn-primary" style={{ fontSize: 12, padding: '8px 16px' }}>Distribuir juizes (round-robin)</button>
+            <>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 11, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Juízes confirmados ({juizes.length})</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                {juizes.map(j => (
+                  <span key={j.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(43,91,232,0.12)', border: '1px solid rgba(43,91,232,0.3)', borderRadius: 20, padding: '4px 10px 4px 12px', fontFamily: 'DM Sans', fontSize: 12, color: 'var(--color-blue-light)' }}>
+                    ⚖️ {j.perfil?.username}
+                    <button onClick={() => removeJuiz(j.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
+                  </span>
+                ))}
+              </div>
+              <button onClick={distribuirJuizes} className="btn-primary" style={{ fontSize: 12, padding: '8px 16px' }}>Distribuir juízes pelas partidas</button>
+            </>
           )}
         </div>
 
