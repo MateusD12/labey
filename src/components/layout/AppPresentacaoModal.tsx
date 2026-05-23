@@ -78,6 +78,36 @@ const FEATURES = [
     desc: 'Feed da comunidade para compartilhar posts, resultados e novidades do mundo Beyblade diretamente na plataforma.',
     color: '#10b981',
   },
+  {
+    icon: '📺',
+    title: 'Modo TV',
+    desc: 'Página fullscreen para projetar o bracket em telão com atualização automática a cada 30s e indicador "AO VIVO". Perfeito para eventos presenciais.',
+    color: '#22c55e',
+  },
+  {
+    icon: '↩️',
+    title: 'Desfazer Resultado',
+    desc: 'Admin pode anular qualquer resultado com um clique. O vencedor é removido do próximo slot do bracket automaticamente, sem inconsistências.',
+    color: '#ef4444',
+  },
+  {
+    icon: '⏳',
+    title: 'Fila de Espera',
+    desc: 'Torneio lotado? Participantes entram automaticamente na fila por ordem de chegada. O organizador promove com um clique quando uma vaga abre.',
+    color: '#f59e0b',
+  },
+  {
+    icon: '⚔️',
+    title: 'Confronto Direto H2H',
+    desc: 'No perfil de outro blader, veja o histórico completo de batalhas entre vocês — placar agregado, vitórias, derrotas e detalhes de cada confronto.',
+    color: '#a78bfa',
+  },
+  {
+    icon: '📋',
+    title: 'Templates de Torneio',
+    desc: 'Salve qualquer configuração de torneio como template e reutilize com um clique. Ideal para organizadores que realizam eventos regulares.',
+    color: '#06b6d4',
+  },
 ]
 
 const ADMIN_FEATURES = [
@@ -93,6 +123,10 @@ const ADMIN_FEATURES = [
   { icon: '⚙️', text: 'Configuração de pontuação, grupos e rodadas' },
   { icon: 'W.O.', text: 'Registro de W.O. com avanço no bracket' },
   { icon: '📡', text: 'Realtime — bracket sincronizado em todos os devices' },
+  { icon: '📺', text: 'Modo TV fullscreen para projetar em telão' },
+  { icon: '↩️', text: 'Desfazer resultado com correção automática do bracket' },
+  { icon: '⏳', text: 'Fila de espera com promoção manual por ordem de chegada' },
+  { icon: '📋', text: 'Templates de torneio reutilizáveis com um clique' },
 ]
 
 export function AppPresentacaoModal({ onClose }: Props) {
@@ -191,11 +225,13 @@ export function AppPresentacaoModal({ onClose }: Props) {
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
               {[
                 { label: '6 formatos', sub: 'de torneio' },
-                { label: 'Tempo real', sub: 'brackets ao vivo' },
+                { label: 'Modo TV', sub: 'bracket em telão' },
                 { label: 'Check-in', sub: 'presença digital' },
-                { label: 'PWA nativo', sub: 'sem App Store' },
+                { label: 'Fila de espera', sub: 'vagas inteligentes' },
+                { label: 'H2H', sub: 'confronto direto' },
                 { label: 'Push alerts', sub: 'jogador + juiz' },
                 { label: 'Combos & Decks', sub: 'gestão de peças' },
+                { label: 'PWA nativo', sub: 'sem App Store' },
               ].map(s => (
                 <div key={s.label} style={{
                   background: 'rgba(43,91,232,0.12)', border: '1px solid rgba(43,91,232,0.3)',
