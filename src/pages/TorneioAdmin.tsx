@@ -13,7 +13,7 @@ import type { Inscricao, Ranking, TorneioJuiz, Perfil } from '@/types'
 export default function TorneioAdmin() {
   const { id } = useParams<{ id: string }>()
   const { perfil } = useAuth()
-  const { torneio, inscricoes, partidas, loading } = useTorneio(id!)
+  const { torneio, inscricoes, partidas, loading, reload } = useTorneio(id!)
   const [pendentes, setPendentes] = useState<Inscricao[]>([])
   const [listaEspera, setListaEspera] = useState<Inscricao[]>([])
   const [allRankings, setAllRankings] = useState<Ranking[]>([])
@@ -139,7 +139,9 @@ export default function TorneioAdmin() {
     if (classificados.length < 2) { setMsg('Classificados insuficientes para gerar bracket.'); return }
 
     const novasPartidas = gerarBracketEliminatorio(classificados, id!)
-    await supabase.from('partidas').insert(novasPartidas)
+    const { error: elimErr } = await supabase.from('partidas').insert(novasPartidas)
+    if (elimErr) { setMsg(`Erro ao inserir partidas: ${elimErr.message}`); return }
+    await reload()
     setMsg(`Fase eliminatoria gerada com ${classificados.length} classificados!`)
   }
 
@@ -153,6 +155,7 @@ export default function TorneioAdmin() {
       if (!novasPartidas.length) { setMsg('Não foi possível gerar pares para a rodada 1.'); return }
       const { error } = await supabase.from('partidas').insert(novasPartidas)
       if (error) { setMsg(`Erro ao inserir partidas: ${error.message}`); return }
+      await reload()
       setMsg(`Rodada 1 gerada com ${novasPartidas.length} partidas!`)
       return
     }
@@ -185,7 +188,9 @@ export default function TorneioAdmin() {
 
     const novasPartidas = gerarRodadaSuica(participantes, rodadaAtual + 1, id!)
     if (novasPartidas.length > 0) {
-      await supabase.from('partidas').insert(novasPartidas)
+      const { error } = await supabase.from('partidas').insert(novasPartidas)
+      if (error) { setMsg(`Erro ao inserir partidas: ${error.message}`); return }
+      await reload()
       setMsg(`Rodada ${rodadaAtual + 1} gerada com ${novasPartidas.length} partidas!`)
     } else {
       setMsg('Nao foi possivel gerar novos pares (todos ja jogaram entre si?).')
@@ -223,6 +228,7 @@ export default function TorneioAdmin() {
     const { error: insertErr } = await supabase.from('partidas').insert(partidas)
     if (insertErr) { setMsg(`Erro ao salvar partidas: ${insertErr.message}`); return }
     await supabase.from('torneios').update({ status: 'em_andamento' }).eq('id', id)
+    await reload()
     setMsg(`✅ ${partidas.length} partidas geradas! Torneio em andamento.`)
   }
 
