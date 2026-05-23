@@ -144,7 +144,18 @@ export default function TorneioAdmin() {
   }
 
   const gerarProximaRodadaSuica = async () => {
-    if (!partidas.length) { setMsg('Nenhuma partida encontrada.'); return }
+    // Se não há partidas ainda (torneio ficou em_andamento sem gerar 1ª rodada), gera a rodada 1
+    if (!partidas.length) {
+      if (inscricoes.length < 2) { setMsg('Mínimo 2 participantes aprovados.'); return }
+      const novasPartidas = gerarRodadaSuica(
+        inscricoes.map(i => ({ id: i.blade_id, pontos: 0, adversarios: [] })), 1, id!
+      )
+      if (!novasPartidas.length) { setMsg('Não foi possível gerar pares para a rodada 1.'); return }
+      const { error } = await supabase.from('partidas').insert(novasPartidas)
+      if (error) { setMsg(`Erro ao inserir partidas: ${error.message}`); return }
+      setMsg(`Rodada 1 gerada com ${novasPartidas.length} partidas!`)
+      return
+    }
 
     const rodadaAtual = Math.max(...partidas.map(p => p.numero_rodada || 0))
     const partidasRodada = partidas.filter(p => p.numero_rodada === rodadaAtual)
@@ -208,11 +219,11 @@ export default function TorneioAdmin() {
     } else if (fmt === 'round_robin') {
       partidas = gerarPartidasRoundRobin(ids, id!) as any[]
     }
-    if (partidas.length > 0) {
-      await supabase.from('partidas').insert(partidas)
-      await supabase.from('torneios').update({ status: 'em_andamento' }).eq('id', id)
-      setMsg(`✅ ${partidas.length} partidas geradas! Torneio em andamento.`)
-    }
+    if (partidas.length === 0) { setMsg('Não foi possível gerar partidas. Verifique o número de participantes.'); return }
+    const { error: insertErr } = await supabase.from('partidas').insert(partidas)
+    if (insertErr) { setMsg(`Erro ao salvar partidas: ${insertErr.message}`); return }
+    await supabase.from('torneios').update({ status: 'em_andamento' }).eq('id', id)
+    setMsg(`✅ ${partidas.length} partidas geradas! Torneio em andamento.`)
   }
 
   const atualizarStatus = async (status: string) => {
@@ -240,7 +251,7 @@ export default function TorneioAdmin() {
             {torneio.status === 'em_andamento' && torneio.formato === 'suico' && (() => {
               const rodadaAtual = partidas.length ? Math.max(...partidas.map(p => p.numero_rodada || 0)) : 0
               return rodadaAtual < torneio.num_rodadas_suico
-                ? <button onClick={gerarProximaRodadaSuica} className="btn-primary">Gerar proxima rodada ({rodadaAtual}/{torneio.num_rodadas_suico})</button>
+                ? <button onClick={gerarProximaRodadaSuica} className="btn-primary">{rodadaAtual === 0 ? 'Gerar rodada 1' : `Gerar próxima rodada (${rodadaAtual}/${torneio.num_rodadas_suico})`}</button>
                 : <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--color-text-muted)', padding: '10px 0' }}>Todas as {torneio.num_rodadas_suico} rodadas geradas</span>
             })()}
             {torneio.status === 'em_andamento' && <button onClick={() => atualizarStatus('finalizado')} style={{ background: 'var(--color-success)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 500 }}>Finalizar torneio</button>}
