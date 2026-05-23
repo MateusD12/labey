@@ -261,6 +261,90 @@ export default function TorneioAdmin() {
     setMsg(`✅ ${partidas.length} partidas geradas! Torneio em andamento.`)
   }
 
+  // ─── Simulação de partidas (teste) ────────────────────────────────────────
+  const SCORE_PARES: [number, number][] = [[3,0],[3,1],[3,2],[2,3],[1,3],[0,3]]
+
+  const simularLote = async (lote: { id: string; blade1_id?: string | null; blade2_id?: string | null }[]) => {
+    await Promise.all(lote.map(p => {
+      const [s1, s2] = SCORE_PARES[Math.floor(Math.random() * SCORE_PARES.length)]
+      const vencedor = s1 > s2 ? p.blade1_id : p.blade2_id
+      return supabase.from('partidas').update({ status: 'finalizada', vencedor_id: vencedor, blade1_score: s1, blade2_score: s2 }).eq('id', p.id)
+    }))
+  }
+
+  const simularRodada = async () => {
+    const pendentes = partidas.filter(p => p.status === 'pendente' && p.blade1_id && p.blade2_id)
+    if (!pendentes.length) { setMsg('Nenhuma partida pendente para simular.'); return }
+    const minRodada = Math.min(...pendentes.map(p => p.numero_rodada ?? 0))
+    const lote = pendentes.filter(p => (p.numero_rodada ?? 0) === minRodada)
+    await simularLote(lote)
+    await reload()
+    setMsg(`▶ Rodada ${minRodada || ''} simulada (${lote.length} partida${lote.length !== 1 ? 's' : ''})`)
+  }
+
+  const simularTudo = async () => {
+    if (torneio.formato === 'suico') {
+      // Swiss: gera + simula todas as rodadas em loop
+      let todasPartidas = [...partidas]
+      let rodadaAtual = todasPartidas.length ? Math.max(...todasPartidas.map(p => p.numero_rodada || 0)) : 0
+      let totalSimuladas = 0
+
+      // Simula pendentes existentes primeiro
+      let pendentes = todasPartidas.filter(p => p.status === 'pendente' && p.blade1_id && p.blade2_id)
+
+      while (pendentes.length > 0 || rodadaAtual < torneio.num_rodadas_suico) {
+        if (pendentes.length > 0) {
+          await simularLote(pendentes)
+          totalSimuladas += pendentes.length
+          // Marca como finalizadas no array local
+          pendentes.forEach(p => {
+            const idx = todasPartidas.findIndex(x => x.id === p.id)
+            if (idx >= 0) todasPartidas[idx] = { ...todasPartidas[idx], status: 'finalizada' }
+          })
+          rodadaAtual = Math.max(rodadaAtual, ...pendentes.map(p => p.numero_rodada || 0))
+        }
+
+        if (rodadaAtual >= torneio.num_rodadas_suico) break
+
+        // Calcula pontos e adversários para a próxima rodada
+        const pontosMap: Record<string, number> = {}
+        const adversariosMap: Record<string, string[]> = {}
+        inscricoes.forEach(i => { pontosMap[i.blade_id] = 0; adversariosMap[i.blade_id] = [] })
+        todasPartidas.forEach(p => {
+          if (p.status !== 'finalizada' || !p.blade1_id || !p.blade2_id) return
+          adversariosMap[p.blade1_id] = [...(adversariosMap[p.blade1_id] || []), p.blade2_id]
+          adversariosMap[p.blade2_id] = [...(adversariosMap[p.blade2_id] || []), p.blade1_id]
+          if (p.vencedor_id) pontosMap[p.vencedor_id] = (pontosMap[p.vencedor_id] || 0) + (torneio.pontos_vitoria || 1)
+        })
+
+        const participantes = inscricoes.map(i => ({
+          id: i.blade_id,
+          pontos: pontosMap[i.blade_id] || 0,
+          adversarios: adversariosMap[i.blade_id] || [],
+        }))
+
+        const novasPartidas = gerarRodadaSuica(participantes, rodadaAtual + 1, id!)
+        if (!novasPartidas.length) break
+
+        const { error } = await supabase.from('partidas').insert(novasPartidas)
+        if (error) { setMsg(`Erro gerando rodada ${rodadaAtual + 1}: ${error.message}`); return }
+        const novasComStatus = novasPartidas.map(p => ({ ...p, status: 'pendente' as const })) as typeof partidas
+        todasPartidas = [...todasPartidas, ...novasComStatus]
+        pendentes = novasComStatus.filter(p => p.blade1_id && p.blade2_id)
+      }
+
+      await reload()
+      setMsg(`⏭ Torneio suíço completo! ${totalSimuladas} partidas em ${rodadaAtual} rodadas.`)
+    } else {
+      const pendentes = partidas.filter(p => p.status === 'pendente' && p.blade1_id && p.blade2_id)
+      if (!pendentes.length) { setMsg('Nenhuma partida pendente para simular.'); return }
+      await simularLote(pendentes)
+      await reload()
+      setMsg(`⏭ ${pendentes.length} partidas simuladas!`)
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
   const atualizarStatus = async (status: string) => {
     await supabase.from('torneios').update({ status }).eq('id', id)
     setMsg(`Status atualizado para: ${status}`)
@@ -303,6 +387,17 @@ export default function TorneioAdmin() {
             )}
             {torneio.status === 'em_andamento' && partidas.length > 0 && <button onClick={() => atualizarStatus('finalizado')} style={{ background: 'var(--color-success)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 500 }}>Finalizar torneio</button>}
           </div>
+
+          {/* Simulação — só aparece quando em andamento com partidas geradas */}
+          {torneio.status === 'em_andamento' && partidas.length > 0 && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
+              <p style={{ fontFamily: 'DM Sans', fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>🎲 Simulação de testes</p>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button onClick={simularRodada} style={{ background: 'rgba(139,92,246,0.12)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)', padding: '8px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 13 }}>▶ Simular rodada atual</button>
+                <button onClick={simularTudo} style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.4)', padding: '8px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 13 }}>⏭ Simular torneio completo</button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="card" style={{ marginBottom: 24 }}>
