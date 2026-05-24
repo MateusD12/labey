@@ -541,6 +541,30 @@ export default function TorneioAdmin() {
       }
     }
 
+    // Auto-advance bye matches in elimination brackets (one real player, null opponent)
+    // Happens when number of advancing players is not a power of 2 (e.g. 50 players → 64-slot bracket)
+    {
+      const isElimFase = (f: any) => ['semi','final','quartas','oitavas','decasseis'].includes(f) || (typeof f === 'string' && f.startsWith('rodada_'))
+      const byeMatches = todas.filter((p: any) =>
+        p.status === 'pendente' && p.numero_rodada != null && isElimFase(p.fase) &&
+        ((p.blade1_id && !p.blade2_id) || (!p.blade1_id && p.blade2_id))
+      )
+      if (byeMatches.length > 0) {
+        await Promise.all(byeMatches.map(async (bye: any) => {
+          const winner = bye.blade1_id ?? bye.blade2_id
+          await supabase.from('partidas').update({
+            status: 'finalizada', vencedor_id: winner,
+            blade1_score: bye.blade1_id ? 1 : 0,
+            blade2_score: bye.blade2_id ? 1 : 0,
+          }).eq('id', bye.id)
+        }))
+        setMsg(`▶ Auto: ${byeMatches.length} bye${byeMatches.length > 1 ? 's' : ''} avançado${byeMatches.length > 1 ? 's' : ''} automaticamente`)
+        await reload()
+        if (autoSimAtivo.current) setTimeout(runAutoSimStep, 1000)
+        return
+      }
+    }
+
     const pendentes = todas.filter((p: any) => p.status === 'pendente' && p.blade1_id && p.blade2_id)
 
     // Usuário pausou
@@ -649,6 +673,28 @@ export default function TorneioAdmin() {
       }
     }))
     await reload()
+    // Also advance byes: matches where only one player exists (no opponent — phantom bracket slot)
+    const { data: freshPs } = await supabase.from('partidas')
+      .select('id, blade1_id, blade2_id, fase, numero_rodada')
+      .eq('torneio_id', id!)
+      .eq('status', 'pendente')
+    const isElimFase = (f: any) => ['semi','final','quartas','oitavas','decasseis'].includes(f) || (typeof f === 'string' && f.startsWith('rodada_'))
+    const byes = (freshPs ?? []).filter((p: any) =>
+      isElimFase(p.fase) && p.numero_rodada != null &&
+      ((p.blade1_id && !p.blade2_id) || (!p.blade1_id && p.blade2_id))
+    )
+    if (byes.length > 0) {
+      await Promise.all(byes.map(async (bye: any) => {
+        const winner = bye.blade1_id ?? bye.blade2_id
+        await supabase.from('partidas').update({
+          status: 'finalizada', vencedor_id: winner,
+          blade1_score: bye.blade1_id ? 1 : 0,
+          blade2_score: bye.blade2_id ? 1 : 0,
+        }).eq('id', bye.id)
+      }))
+      reparadas += byes.length
+      await reload()
+    }
     setMsg(`🔧 Bracket reparado: ${reparadas} avanço${reparadas !== 1 ? 's' : ''} aplicado${reparadas !== 1 ? 's' : ''}.`)
   }
   // ──────────────────────────────────────────────────────────────────────────
