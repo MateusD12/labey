@@ -11,26 +11,31 @@ export function useTorneio(torneioId: string) {
   const [partidasError, setPartidasError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
-    const [t, p, i, rt] = await Promise.all([
-      supabase.from('torneios').select('*').eq('id', torneioId).single(),
-      supabase.from('partidas')
-        .select('*, blade1:perfis!blade1_id(id, username, nome_display, avatar_url), blade2:perfis!blade2_id(id, username, nome_display, avatar_url), juiz:perfis!juiz_id(id, username, nome_display, avatar_url)')
-        .eq('torneio_id', torneioId)
-        .order('numero_rodada', { nullsFirst: true })
-        .order('posicao_bracket', { nullsFirst: true })
-        .order('created_at'),
-      supabase.from('inscricoes').select('*, perfil:perfis(id, username, nome_display, avatar_url)').eq('torneio_id', torneioId).eq('status', 'aprovado'),
-      supabase.from('ranking_torneios').select('ranking:rankings(*)').eq('torneio_id', torneioId),
-    ])
-    if (t.error) console.error('[useTorneio] torneio:', t.error)
-    if (p.error) { console.error('[useTorneio] partidas:', p.error); setPartidasError(p.error.message) }
-    else setPartidasError(null)
-    if (i.error) console.error('[useTorneio] inscricoes:', i.error)
-    setTorneio(t.data as Torneio)
-    setPartidas((p.data ?? []) as Partida[])
-    setInscricoes((i.data ?? []) as Inscricao[])
-    setRankings(((rt.data ?? []).map((r: any) => r.ranking).filter(Boolean)) as Ranking[])
-    setLoading(false)
+    try {
+      const [t, p, i, rt] = await Promise.all([
+        supabase.from('torneios').select('*').eq('id', torneioId).single(),
+        supabase.from('partidas')
+          .select('*, blade1:perfis!blade1_id(id, username, nome_display, avatar_url), blade2:perfis!blade2_id(id, username, nome_display, avatar_url), juiz:perfis!juiz_id(id, username, nome_display, avatar_url)')
+          .eq('torneio_id', torneioId)
+          .order('numero_rodada', { nullsFirst: true })
+          .order('posicao_bracket', { nullsFirst: true })
+          .order('created_at'),
+        supabase.from('inscricoes').select('*, perfil:perfis(id, username, nome_display, avatar_url)').eq('torneio_id', torneioId).eq('status', 'aprovado'),
+        supabase.from('ranking_torneios').select('ranking:rankings(*)').eq('torneio_id', torneioId),
+      ])
+      if (t.error) console.error('[useTorneio] torneio:', t.error)
+      if (p.error) { console.error('[useTorneio] partidas:', p.error); setPartidasError(p.error.message) }
+      else setPartidasError(null)
+      if (i.error) console.error('[useTorneio] inscricoes:', i.error)
+      setTorneio(t.data as Torneio)
+      setPartidas((p.data ?? []) as Partida[])
+      setInscricoes((i.data ?? []) as Inscricao[])
+      setRankings(((rt.data ?? []).map((r: any) => r.ranking).filter(Boolean)) as Ranking[])
+    } catch (e) {
+      console.error('[useTorneio] load error:', e)
+    } finally {
+      setLoading(false)
+    }
   }, [torneioId])
 
   useEffect(() => {

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Share2, QrCode, CheckCircle2, Timer, Tv } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { useTorneio } from '@/hooks/useTorneio'
 import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import { calcularClassificacaoGrupo } from '@/lib/algorithms/grupos'
 import { BracketEliminatorio } from '@/components/torneio/BracketEliminatorio'
 import { BracketSuico } from '@/components/torneio/BracketSuico'
 import { FaseDeGrupos } from '@/components/torneio/FaseDeGrupos'
@@ -29,7 +30,7 @@ const STATUS_TEXT: Record<string, string> = {
   cancelado:   'var(--color-danger)',
 }
 
-type Tab = 'partidas' | 'posicoes' | 'grupos'
+type Tab = 'partidas' | 'posicoes' | 'grupos' | 'eliminatoria'
 
 export default function TorneioDetalhe() {
   const { id } = useParams<{ id: string }>()
@@ -44,6 +45,43 @@ export default function TorneioDetalhe() {
   const [checkedIn, setCheckedIn] = useState(false)
 
   const hasGrupos = torneio?.formato === 'fase_grupos' || torneio?.formato === 'copa_do_mundo'
+  const isCopaMundo = torneio?.formato === 'copa_do_mundo'
+  const elimPartidas = partidas.filter(p => p.fase !== 'grupos')
+  const grupoPartidas = partidas.filter(p => p.fase === 'grupos')
+  const temElimAtiva = isCopaMundo && elimPartidas.some(p => p.blade1_id || p.blade2_id)
+
+  // Auto-advance to 'eliminatoria' tab when elimination becomes active
+  useEffect(() => {
+    if (temElimAtiva && (activeTab === 'grupos' || activeTab === 'partidas')) {
+      setActiveTab('eliminatoria')
+    }
+  }, [temElimAtiva])
+
+  // Auto-advance completed Copa do Mundo groups to pre-generated elimination slots
+  const advanceCompletedGroups = useCallback(async () => {
+    if (!isCopaMundo || elimPartidas.length === 0) return
+    const sortedGroups = [...new Set(grupoPartidas.map(p => p.grupo).filter(Boolean))].sort() as string[]
+    const numGroups = sortedGroups.length
+    const updates: PromiseLike<any>[] = []
+    sortedGroups.forEach((grupo, gi) => {
+      const gps = grupoPartidas.filter(p => p.grupo === grupo)
+      if (gps.length === 0 || !gps.every(p => p.status === 'finalizada')) return
+      const cls = calcularClassificacaoGrupo(gps, {
+        vitoria: torneio!.pontos_vitoria, empate: torneio!.pontos_empate, derrota: torneio!.pontos_derrota,
+      })
+      const top = [...cls.values()].filter(c => c.grupo === grupo)
+        .sort((a, b) => b.pontos - a.pontos || b.saldo - a.saldo || b.gp - a.gp)
+      if (top.length < 2) return
+      const [winner, runner] = [top[0].blade_id, top[1].blade_id]
+      const wm = elimPartidas.find(p => p.numero_rodada === 1 && p.posicao_bracket === gi)
+      const rm = elimPartidas.find(p => p.numero_rodada === 1 && p.posicao_bracket === numGroups - 1 - gi)
+      if (wm && !wm.blade1_id) updates.push(supabase.from('partidas').update({ blade1_id: winner }).eq('id', wm.id).then())
+      if (rm && !rm.blade2_id) updates.push(supabase.from('partidas').update({ blade2_id: runner }).eq('id', rm.id).then())
+    })
+    if (updates.length > 0) { await Promise.all(updates); reload() }
+  }, [isCopaMundo, grupoPartidas, elimPartidas, torneio])
+
+  useEffect(() => { advanceCompletedGroups() }, [partidas])
 
   // Find current user's inscricao
   const minhaInscricao = user
@@ -98,20 +136,6 @@ export default function TorneioDetalhe() {
       case 'eliminatorio_simples':
       case 'eliminatorio_duplo':
         return <BracketEliminatorio partidas={partidas} isAdmin={isAdmin} onRefresh={reload} />
-      case 'copa_do_mundo': {
-        const temElim = partidas.some(p => p.fase !== 'grupos')
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            <FaseDeGrupos partidas={partidas.filter(p => p.fase === 'grupos')} isAdmin={isAdmin} onRefresh={reload} pontos={{ vitoria: torneio.pontos_vitoria, empate: torneio.pontos_empate, derrota: torneio.pontos_derrota }} />
-            {temElim && (
-              <div>
-                <h3 style={{ fontFamily: 'Rajdhani', fontSize: 20, fontWeight: 700, marginBottom: 16 }}>Fase Eliminatória</h3>
-                <BracketEliminatorio partidas={partidas.filter(p => p.fase !== 'grupos')} isAdmin={isAdmin} onRefresh={reload} />
-              </div>
-            )}
-          </div>
-        )
-      }
       case 'suico':
         return <BracketSuico partidas={partidas} isAdmin={isAdmin} onRefresh={reload} />
       case 'fase_grupos':
@@ -244,14 +268,43 @@ export default function TorneioDetalhe() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border)', marginBottom: 28, overflowX: 'auto' }}>
-          <button style={tabStyle('partidas')} onClick={() => setActiveTab('partidas')}>Partidas</button>
-          <button style={tabStyle('posicoes')} onClick={() => setActiveTab('posicoes')}>Posições</button>
-          {hasGrupos && (
-            <button style={tabStyle('grupos')} onClick={() => setActiveTab('grupos')}>Grupos</button>
+          {isCopaMundo ? (
+            <>
+              <button style={tabStyle('grupos')} onClick={() => setActiveTab('grupos')}>Grupos</button>
+              <button style={tabStyle('eliminatoria')} onClick={() => setActiveTab('eliminatoria')}>
+                Eliminatória {temElimAtiva ? '🔴' : ''}
+              </button>
+              <button style={tabStyle('posicoes')} onClick={() => setActiveTab('posicoes')}>Posições</button>
+            </>
+          ) : (
+            <>
+              <button style={tabStyle('partidas')} onClick={() => setActiveTab('partidas')}>Partidas</button>
+              <button style={tabStyle('posicoes')} onClick={() => setActiveTab('posicoes')}>Posições</button>
+              {hasGrupos && (
+                <button style={tabStyle('grupos')} onClick={() => setActiveTab('grupos')}>Grupos</button>
+              )}
+            </>
           )}
         </div>
 
-        {activeTab === 'partidas' && (
+        {/* Copa do Mundo: grupos tab */}
+        {isCopaMundo && activeTab === 'grupos' && (
+          grupoPartidas.length > 0
+            ? <FaseDeGrupos partidas={grupoPartidas} isAdmin={isAdmin} onRefresh={reload} pontos={{ vitoria: torneio.pontos_vitoria, empate: torneio.pontos_empate, derrota: torneio.pontos_derrota }} />
+            : <div className="card" style={{ textAlign: 'center', padding: 48, color: 'var(--color-text-muted)', fontFamily: 'DM Sans' }}>As partidas ainda não foram geradas.</div>
+        )}
+
+        {/* Copa do Mundo: eliminatória tab */}
+        {isCopaMundo && activeTab === 'eliminatoria' && (
+          temElimAtiva
+            ? <BracketEliminatorio partidas={elimPartidas} isAdmin={isAdmin} onRefresh={reload} />
+            : <div className="card" style={{ textAlign: 'center', padding: 48, color: 'var(--color-text-muted)', fontFamily: 'DM Sans' }}>
+                A fase eliminatória começará quando todos os grupos concluírem suas rodadas.
+              </div>
+        )}
+
+        {/* Other formats: partidas tab */}
+        {!isCopaMundo && activeTab === 'partidas' && (
           partidas.length > 0 ? renderBracket() : (
             <div className="card" style={{ textAlign: 'center', padding: 48, color: 'var(--color-text-muted)', fontFamily: 'DM Sans' }}>
               {torneio.status === 'inscricoes' ? '⏳ Aguardando encerramento das inscrições para gerar partidas.' : 'As partidas ainda não foram geradas.'}
@@ -268,7 +321,7 @@ export default function TorneioDetalhe() {
           </div>
         )}
 
-        {activeTab === 'grupos' && hasGrupos && (
+        {activeTab === 'grupos' && hasGrupos && !isCopaMundo && (
           <GruposStandings
             partidas={partidas.filter(p => p.fase === 'grupos')}
             inscricoes={inscricoes}

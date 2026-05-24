@@ -40,7 +40,7 @@ export default function TorneiosCriar() {
     nome: '', descricao: '', formato: 'eliminatorio_simples' as Formato,
     max_participantes: '', data_inicio: '', premio: '', regras: '',
     pontos_vitoria: '3', pontos_empate: '1', pontos_derrota: '0',
-    num_grupos: '4', classificados_por_grupo: '2', num_rodadas_suico: '5',
+    num_grupos: '4', classificados_por_grupo: '2', num_rodadas_suico: '5', num_rodadas_grupo: '3',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -96,6 +96,7 @@ export default function TorneiosCriar() {
       num_grupos: parseInt(form.num_grupos) || 4,
       classificados_por_grupo: parseInt(form.classificados_por_grupo) || 2,
       num_rodadas_suico: parseInt(form.num_rodadas_suico) || 5,
+      num_rodadas_grupo: Math.min(4, Math.max(1, parseInt(form.num_rodadas_grupo) || 3)),
     }).select().single()
     if (err) { setError(err.message); setSaving(false); return }
     navigate(`/torneios/${data.id}/admin`)
@@ -151,9 +152,10 @@ export default function TorneiosCriar() {
             </div>
           </div>
           {(form.formato === 'fase_grupos' || form.formato === 'copa_do_mundo') && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
               <div><label style={labelStyle}>Número de grupos</label><input type="number" min="2" value={form.num_grupos} onChange={e => set('num_grupos', e.target.value)} style={inputStyle} /></div>
-              <div><label style={labelStyle}>Classificados por grupo</label><input type="number" min="1" value={form.classificados_por_grupo} onChange={e => set('classificados_por_grupo', e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Classificados por grupo</label><input type="number" min="1" max="4" value={form.classificados_por_grupo} onChange={e => set('classificados_por_grupo', e.target.value)} style={inputStyle} /></div>
+              <div><label style={labelStyle}>Rodadas por grupo (1–4)</label><input type="number" min="1" max="4" value={form.num_rodadas_grupo} onChange={e => set('num_rodadas_grupo', e.target.value)} style={inputStyle} /></div>
             </div>
           )}
           {form.formato === 'suico' && (

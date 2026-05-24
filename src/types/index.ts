@@ -42,6 +42,7 @@ export interface Torneio {
   num_grupos: number
   classificados_por_grupo: number
   num_rodadas_suico: number
+  num_rodadas_grupo?: number | null
   criador_id?: string | null
   created_at?: string
 }

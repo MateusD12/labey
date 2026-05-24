@@ -43,6 +43,57 @@ export function gerarPartidasGrupos(inscricoes: Inscricao[], torneioId: string):
   return partidas
 }
 
+function gerarRodadasCirculo(ids: string[]): string[][][] {
+  const list = [...ids]
+  if (list.length % 2 === 1) list.push('bye')
+  const N = list.length
+  const rounds: string[][][] = []
+  for (let round = 0; round < N - 1; round++) {
+    const pairs: string[][] = []
+    for (let i = 0; i < N / 2; i++) {
+      const p1 = list[i]
+      const p2 = list[N - 1 - i]
+      if (p1 !== 'bye' && p2 !== 'bye') pairs.push([p1, p2])
+    }
+    rounds.push(pairs)
+    // Rotate: keep list[0] fixed, rotate the rest
+    const last = list[N - 1]
+    for (let i = N - 1; i > 1; i--) list[i] = list[i - 1]
+    list[1] = last
+  }
+  return rounds
+}
+
+export function gerarPartidasGruposComRodadas(inscricoes: Inscricao[], torneioId: string, numRodadas: number): Omit<Partida, 'id'>[] {
+  const grupos = new Map<string, Inscricao[]>()
+  for (const ins of inscricoes) {
+    if (!ins.grupo) continue
+    if (!grupos.has(ins.grupo)) grupos.set(ins.grupo, [])
+    grupos.get(ins.grupo)!.push(ins)
+  }
+
+  const partidas: Omit<Partida, 'id'>[] = []
+  for (const [grupo, membros] of grupos) {
+    const ids = membros.map(m => m.blade_id)
+    const rounds = gerarRodadasCirculo(ids)
+    const maxRodadas = Math.min(numRodadas, rounds.length)
+    for (let r = 0; r < maxRodadas; r++) {
+      for (const [b1, b2] of rounds[r]) {
+        partidas.push({
+          torneio_id: torneioId,
+          fase: 'grupos',
+          grupo,
+          numero_rodada: r + 1,
+          blade1_id: b1,
+          blade2_id: b2,
+          status: 'pendente',
+        } as Omit<Partida, 'id'>)
+      }
+    }
+  }
+  return partidas
+}
+
 export function calcularClassificacaoGrupo(
   partidas: Partida[],
   pontos: { vitoria: number; empate: number; derrota: number }

@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { useAuth } from '@/lib/auth'
 import { useTorneio } from '@/hooks/useTorneio'
 import { supabase } from '@/lib/supabase'
-import { gerarBracketEliminatorio } from '@/lib/algorithms/eliminatorio'
+import { gerarBracketEliminatorio, gerarEstruturaBracketVazia } from '@/lib/algorithms/eliminatorio'
 import { gerarRodadaSuica } from '@/lib/algorithms/swiss'
-import { distribuirEmGrupos, gerarPartidasGrupos, calcularClassificacaoGrupo } from '@/lib/algorithms/grupos'
+import { distribuirEmGrupos, gerarPartidasGruposComRodadas, calcularClassificacaoGrupo } from '@/lib/algorithms/grupos'
 import { gerarPartidasRoundRobin } from '@/lib/algorithms/roundrobin'
 import type { Inscricao, Ranking, TorneioJuiz, Perfil } from '@/types'
 
@@ -146,7 +146,10 @@ export default function TorneioAdmin() {
     const partidasGrupos = partidas.filter(p => p.fase === 'grupos')
     if (partidasGrupos.length === 0) { setMsg('Nenhuma partida de grupo encontrada.'); return }
     if (!partidasGrupos.every(p => p.status === 'finalizada')) { setMsg('Finalize todas as partidas de grupo primeiro.'); return }
-    if (partidas.some(p => p.fase !== 'grupos')) { setMsg('Fase eliminatoria ja foi gerada.'); return }
+
+    const elimPartidas = partidas.filter(p => p.fase !== 'grupos')
+    const temElimComJogadores = elimPartidas.some(p => p.blade1_id || p.blade2_id)
+    if (temElimComJogadores) { setMsg('Fase eliminatoria ja foi gerada.'); return }
 
     const classificacao = calcularClassificacaoGrupo(partidasGrupos, {
       vitoria: torneio.pontos_vitoria,
@@ -160,17 +163,38 @@ export default function TorneioAdmin() {
       porGrupo.get(entry.grupo)!.push(entry)
     })
 
+    const sortedGroups = [...porGrupo.keys()].sort()
+    const numGroups = sortedGroups.length
+
+    // Se há bracket pré-gerado vazio, preenche os slots
+    if (elimPartidas.length > 0) {
+      const updates: PromiseLike<any>[] = []
+      sortedGroups.forEach((grupo, gi) => {
+        const membros = (porGrupo.get(grupo) ?? [])
+          .sort((a, b) => b.pontos - a.pontos || b.saldo - a.saldo || b.gp - a.gp)
+        if (membros.length < 2) return
+        const [winner, runner] = [membros[0].blade_id, membros[1].blade_id]
+        const wm = elimPartidas.find(p => p.numero_rodada === 1 && p.posicao_bracket === gi)
+        const rm = elimPartidas.find(p => p.numero_rodada === 1 && p.posicao_bracket === numGroups - 1 - gi)
+        if (wm) updates.push(supabase.from('partidas').update({ blade1_id: winner }).eq('id', wm.id).then())
+        if (rm) updates.push(supabase.from('partidas').update({ blade2_id: runner }).eq('id', rm.id).then())
+      })
+      if (updates.length > 0) await Promise.all(updates)
+      await reload()
+      setMsg(`Classificados distribuídos no bracket! ${numGroups * torneio.classificados_por_grupo} jogadores avançaram.`)
+      return
+    }
+
+    // Fallback: gera bracket novo (torneios sem pré-geração)
     const classificados: string[] = []
-    porGrupo.forEach(membros => {
-      membros.sort((a, b) => b.pontos - a.pontos || b.saldo - a.saldo || b.gp - a.gp)
+    sortedGroups.forEach(grupo => {
+      (porGrupo.get(grupo) ?? [])
+        .sort((a, b) => b.pontos - a.pontos || b.saldo - a.saldo || b.gp - a.gp)
         .slice(0, torneio.classificados_por_grupo)
         .forEach(m => classificados.push(m.blade_id))
     })
-
     if (classificados.length < 2) { setMsg('Classificados insuficientes para gerar bracket.'); return }
-
-    const novasPartidas = gerarBracketEliminatorio(classificados, id!)
-    const { error: elimErr } = await supabase.from('partidas').insert(novasPartidas)
+    const { error: elimErr } = await supabase.from('partidas').insert(gerarBracketEliminatorio(classificados, id!))
     if (elimErr) { setMsg(`Erro ao inserir partidas: ${elimErr.message}`); return }
     await reload()
     setMsg(`Fase eliminatoria gerada com ${classificados.length} classificados!`)
@@ -242,36 +266,62 @@ export default function TorneioAdmin() {
     const inscricoesSorted = [...inscricoes].sort((a, b) => (a.seed ?? 9999) - (b.seed ?? 9999))
     const ids = inscricoesSorted.map(i => i.blade_id)
     if (ids.length < 2) { setMsg('Mínimo 2 participantes aprovados.'); return }
-    let partidas: any[] = []
+    let geradas: any[] = []
     const fmt = torneio.formato
     if (fmt === 'eliminatorio_simples' || fmt === 'eliminatorio_duplo') {
-      partidas = gerarBracketEliminatorio(ids, id!)
+      geradas = gerarBracketEliminatorio(ids, id!)
     } else if (fmt === 'suico') {
-      partidas = gerarRodadaSuica(ids.map(pid => ({ id: pid, pontos: 0, adversarios: [] })), 1, id!) as any[]
+      geradas = gerarRodadaSuica(ids.map(pid => ({ id: pid, pontos: 0, adversarios: [] })), 1, id!) as any[]
     } else if (fmt === 'fase_grupos' || fmt === 'copa_do_mundo') {
-      const insComGrupo = distribuirEmGrupos(inscricoes, torneio.num_grupos)
+      // Enforce max 4 players per group
+      const numGrupos = Math.max(torneio.num_grupos, Math.ceil(ids.length / 4))
+      const numRodadas = Math.min(4, Math.max(1, torneio.num_rodadas_grupo ?? 3))
+      const insComGrupo = distribuirEmGrupos(inscricoes, numGrupos)
       await Promise.all(insComGrupo.map(i => supabase.from('inscricoes').update({ grupo: i.grupo }).eq('id', i.id)))
-      partidas = gerarPartidasGrupos(insComGrupo, id!) as any[]
+      geradas = gerarPartidasGruposComRodadas(insComGrupo, id!, numRodadas) as any[]
+      if (fmt === 'copa_do_mundo') {
+        // Pre-generate empty elimination bracket structure
+        const numClassificados = numGrupos * (torneio.classificados_por_grupo ?? 2)
+        const elimVazia = gerarEstruturaBracketVazia(numClassificados, id!)
+        geradas = [...geradas, ...elimVazia]
+      }
     } else if (fmt === 'round_robin') {
-      partidas = gerarPartidasRoundRobin(ids, id!) as any[]
+      geradas = gerarPartidasRoundRobin(ids, id!) as any[]
     }
-    if (partidas.length === 0) { setMsg('Não foi possível gerar partidas. Verifique o número de participantes.'); return }
-    const { error: insertErr } = await supabase.from('partidas').insert(partidas)
+    if (geradas.length === 0) { setMsg('Não foi possível gerar partidas. Verifique o número de participantes.'); return }
+    const { error: insertErr } = await supabase.from('partidas').insert(geradas)
     if (insertErr) { setMsg(`Erro ao salvar partidas: ${insertErr.message}`); return }
     await supabase.from('torneios').update({ status: 'em_andamento' }).eq('id', id)
     await reload()
-    setMsg(`✅ ${partidas.length} partidas geradas! Torneio em andamento.`)
+    setMsg(`✅ ${geradas.length} partidas geradas! Torneio em andamento.`)
   }
 
   // ─── Simulação de partidas (teste) ────────────────────────────────────────
   const SCORE_PARES: [number, number][] = [[3,0],[3,1],[3,2],[2,3],[1,3],[0,3]]
 
-  const simularLote = async (lote: { id: string; blade1_id?: string | null; blade2_id?: string | null }[]) => {
-    await Promise.all(lote.map(p => {
-      const [s1, s2] = SCORE_PARES[Math.floor(Math.random() * SCORE_PARES.length)]
-      const vencedor = s1 > s2 ? p.blade1_id : p.blade2_id
-      return supabase.from('partidas').update({ status: 'finalizada', vencedor_id: vencedor, blade1_score: s1, blade2_score: s2 }).eq('id', p.id)
-    }))
+  const simularLote = async (lote: Array<{ id: string; blade1_id?: string | null; blade2_id?: string | null; torneio_id?: string; numero_rodada?: number | null; posicao_bracket?: number | null }>) => {
+    const CHUNK = 6  // max concurrent requests — evita saturar pool do Supabase
+    for (let i = 0; i < lote.length; i += CHUNK) {
+      await Promise.all(lote.slice(i, i + CHUNK).map(async p => {
+        const [s1, s2] = SCORE_PARES[Math.floor(Math.random() * SCORE_PARES.length)]
+        const vencedor = s1 > s2 ? p.blade1_id : p.blade2_id
+        await supabase.from('partidas').update({ status: 'finalizada', vencedor_id: vencedor, blade1_score: s1, blade2_score: s2 }).eq('id', p.id)
+        // Advance winner to next bracket round (eliminatório)
+        // Note: server trigger trg_propagate_bracket also does this automatically
+        if (vencedor && p.numero_rodada != null && p.posicao_bracket != null) {
+          const nextRodada = p.numero_rodada + 1
+          const nextPos = Math.floor(p.posicao_bracket / 2)
+          const slot = p.posicao_bracket % 2 === 0 ? 'blade1_id' : 'blade2_id'
+          const { error: propErr } = await supabase.from('partidas')
+            .update({ [slot]: vencedor })
+            .eq('torneio_id', p.torneio_id ?? id!)
+            .eq('numero_rodada', nextRodada)
+            .eq('posicao_bracket', nextPos)
+          if (propErr) console.error('[simularLote] propagação bracket:', propErr.message)
+        }
+      }))
+      if (i + CHUNK < lote.length) await new Promise(r => setTimeout(r, 150))
+    }
   }
 
   const simularRodada = async () => {
@@ -340,9 +390,23 @@ export default function TorneioAdmin() {
     } else {
       const pendentes = partidas.filter(p => p.status === 'pendente' && p.blade1_id && p.blade2_id)
       if (!pendentes.length) { setMsg('Nenhuma partida pendente para simular.'); return }
-      await simularLote(pendentes)
-      await reload()
-      setMsg(`⏭ ${pendentes.length} partidas simuladas!`)
+      // Grupos: simula um grupo por vez para não sobrecarregar (ex: 900 partidas)
+      const gruposPend = pendentes.filter(p => (p as any).fase === 'grupos')
+      if (gruposPend.length > 0) {
+        const sortedGrupos = [...new Set(gruposPend.map((p: any) => p.grupo))].filter(Boolean).sort() as string[]
+        let total = 0
+        for (const g of sortedGrupos) {
+          const lote = gruposPend.filter((p: any) => p.grupo === g)
+          await simularLote(lote)
+          total += lote.length
+        }
+        await reload()
+        setMsg(`⏭ ${total} partidas de grupo simuladas!`)
+      } else {
+        await simularLote(pendentes)
+        await reload()
+        setMsg(`⏭ ${pendentes.length} partidas simuladas!`)
+      }
     }
   }
   const pararAutoSimular = () => {
@@ -354,24 +418,194 @@ export default function TorneioAdmin() {
   const runAutoSimStep = async () => {
     if (!autoSimAtivo.current) return
 
-    // Busca direto do banco para não usar estado stale
-    const { data: ps } = await supabase
+    try {
+
+    // Busca TODAS as partidas frescas do banco (incluindo fase e dados de grupo para copa_do_mundo)
+    const { data: ps, error: fetchErr } = await supabase
       .from('partidas')
-      .select('id, blade1_id, blade2_id, status, numero_rodada')
+      .select('id, blade1_id, blade2_id, status, numero_rodada, posicao_bracket, torneio_id, fase, grupo, vencedor_id, blade1_score, blade2_score')
       .eq('torneio_id', id)
-      .eq('status', 'pendente')
 
-    const pendentes = (ps ?? []).filter(p => p.blade1_id && p.blade2_id)
-
-    if (!pendentes.length || !autoSimAtivo.current) {
-      autoSimAtivo.current = false
-      setAutoSimulando(false)
-      setMsg('Auto-simulação concluída — sem mais partidas pendentes.')
-      await reload()
+    if (fetchErr) {
+      console.error('[autoSim] erro ao buscar partidas:', fetchErr)
+      setMsg(`⚠️ Erro ao buscar partidas: ${fetchErr.message} — tentando em 5s...`)
+      if (autoSimAtivo.current) setTimeout(runAutoSimStep, 5000)
       return
     }
 
-    // Simula a rodada com menor número
+    const todas = (ps ?? []) as any[]
+
+    // Copa do Mundo: avança top 2 de cada grupo completo para o bracket pré-gerado
+    if (torneio?.formato === 'copa_do_mundo') {
+      const gruposPs = todas.filter((p: any) => p.fase === 'grupos')
+      const elimPs   = todas.filter((p: any) => p.fase !== 'grupos')
+
+      // Fallback: se não há bracket pré-gerado e todos os grupos terminaram, gera agora
+      if (gruposPs.length > 0 && gruposPs.every((p: any) => p.status === 'finalizada') && elimPs.length === 0) {
+        setMsg('🔄 Todos os grupos finalizados! Gerando fase eliminatória...')
+        const classificacao = calcularClassificacaoGrupo(gruposPs, {
+          vitoria: torneio.pontos_vitoria, empate: torneio.pontos_empate, derrota: torneio.pontos_derrota,
+        })
+        const porGrupo = new Map<string, { blade_id: string; pontos: number; saldo: number; gp: number }[]>()
+        classificacao.forEach(entry => {
+          if (!porGrupo.has(entry.grupo)) porGrupo.set(entry.grupo, [])
+          porGrupo.get(entry.grupo)!.push(entry)
+        })
+        const classificados: string[] = []
+        porGrupo.forEach(membros => {
+          membros.sort((a, b) => b.pontos - a.pontos || b.saldo - a.saldo || b.gp - a.gp)
+            .slice(0, torneio.classificados_por_grupo).forEach(m => classificados.push(m.blade_id))
+        })
+        if (classificados.length >= 2) {
+          const { error } = await supabase.from('partidas').insert(gerarBracketEliminatorio(classificados, id!))
+          if (error) { setMsg(`Erro: ${error.message}`); autoSimAtivo.current = false; setAutoSimulando(false); return }
+          await reload()
+          setMsg(`✅ Fase eliminatória gerada! Continuando em 5s...`)
+          if (autoSimAtivo.current) setTimeout(runAutoSimStep, 5000)
+        } else { autoSimAtivo.current = false; setAutoSimulando(false) }
+        return
+      }
+
+      // Novo: avança top 2 de cada grupo completo para slots do bracket pré-gerado
+      if (elimPs.length > 0) {
+        const sortedGroups = [...new Set(gruposPs.map((p: any) => p.grupo).filter(Boolean))].sort() as string[]
+        const numGroups = sortedGroups.length
+        const updates: PromiseLike<any>[] = []
+        for (let gi = 0; gi < sortedGroups.length; gi++) {
+          const grupo = sortedGroups[gi]
+          const grupoPs = gruposPs.filter((p: any) => p.grupo === grupo)
+          if (!grupoPs.every((p: any) => p.status === 'finalizada')) continue
+          const classificacao = calcularClassificacaoGrupo(grupoPs, {
+            vitoria: torneio.pontos_vitoria, empate: torneio.pontos_empate, derrota: torneio.pontos_derrota,
+          })
+          const top = [...classificacao.values()].filter(c => c.grupo === grupo)
+            .sort((a, b) => b.pontos - a.pontos || b.saldo - a.saldo || b.gp - a.gp)
+          if (top.length < 2) continue
+          const [winner, runner] = [top[0].blade_id, top[1].blade_id]
+          // Cross-seeding: group i winner → match i blade1, group i runner-up → match (N-1-i) blade2
+          const winnerMatch = elimPs.find((p: any) => p.numero_rodada === 1 && p.posicao_bracket === gi)
+          const runnerMatch = elimPs.find((p: any) => p.numero_rodada === 1 && p.posicao_bracket === numGroups - 1 - gi)
+          if (winnerMatch && !winnerMatch.blade1_id)
+            updates.push(supabase.from('partidas').update({ blade1_id: winner }).eq('id', winnerMatch.id).then())
+          if (runnerMatch && !runnerMatch.blade2_id)
+            updates.push(supabase.from('partidas').update({ blade2_id: runner }).eq('id', runnerMatch.id).then())
+        }
+        if (updates.length > 0) {
+          await Promise.all(updates)
+          await reload()
+          // Return so the next call fetches fresh data with populated bracket slots.
+          // Using stale 'todas' here would show pendentes=0 and finalize the tournament prematurely.
+          if (autoSimAtivo.current) setTimeout(runAutoSimStep, 2000)
+          return
+        }
+      }
+    }
+
+    // Suíço: quando toda a rodada atual está concluída, gerar a próxima automaticamente
+    if (torneio?.formato === 'suico' && todas.length > 0) {
+      const rodadaAtual = Math.max(...todas.map((p: any) => p.numero_rodada ?? 0))
+      const matchesDaRodada = todas.filter((p: any) => (p.numero_rodada ?? 0) === rodadaAtual)
+      const rodadaConcluida = matchesDaRodada.length > 0 && matchesDaRodada.every((p: any) => p.status === 'finalizada')
+      const proximaExiste = todas.some((p: any) => (p.numero_rodada ?? 0) > rodadaAtual)
+
+      if (rodadaConcluida && !proximaExiste && rodadaAtual < (torneio.num_rodadas_suico ?? 0)) {
+        setMsg(`🔄 Rodada ${rodadaAtual} concluída! Gerando rodada ${rodadaAtual + 1}/${torneio.num_rodadas_suico}...`)
+
+        const pontosMap: Record<string, number> = {}
+        const adversariosMap: Record<string, string[]> = {}
+        const allPlayerIds = [...new Set([
+          ...todas.filter((p: any) => p.blade1_id).map((p: any) => p.blade1_id as string),
+          ...todas.filter((p: any) => p.blade2_id).map((p: any) => p.blade2_id as string),
+        ])]
+        allPlayerIds.forEach(pid => { pontosMap[pid] = 0; adversariosMap[pid] = [] })
+        todas.forEach((p: any) => {
+          if (p.status !== 'finalizada' || !p.blade1_id || !p.blade2_id) return
+          adversariosMap[p.blade1_id].push(p.blade2_id)
+          adversariosMap[p.blade2_id].push(p.blade1_id)
+          if (p.vencedor_id) pontosMap[p.vencedor_id] = (pontosMap[p.vencedor_id] || 0) + (torneio.pontos_vitoria || 1)
+        })
+        const participantes = allPlayerIds.map(pid => ({
+          id: pid, pontos: pontosMap[pid] || 0, adversarios: adversariosMap[pid] || [],
+        }))
+
+        const novasPartidas = gerarRodadaSuica(participantes, rodadaAtual + 1, id!)
+        const { error: suicoErr } = await supabase.from('partidas').insert(novasPartidas)
+        if (suicoErr) {
+          setMsg(`Erro ao gerar rodada ${rodadaAtual + 1}: ${suicoErr.message}`)
+          autoSimAtivo.current = false; setAutoSimulando(false); return
+        }
+        await reload()
+        setMsg(`✅ Rodada ${rodadaAtual + 1}/${torneio.num_rodadas_suico} gerada! Simulando em 3s...`)
+        if (autoSimAtivo.current) setTimeout(runAutoSimStep, 3000)
+        return
+      }
+    }
+
+    const pendentes = todas.filter((p: any) => p.status === 'pendente' && p.blade1_id && p.blade2_id)
+
+    // Usuário pausou
+    if (!autoSimAtivo.current) { setAutoSimulando(false); return }
+
+    // Sem mais partidas pendentes → finalizar torneio
+    if (!pendentes.length) {
+      autoSimAtivo.current = false
+      setAutoSimulando(false)
+
+      const comJogadores = todas.filter((p: any) => p.blade1_id && p.blade2_id)
+      const todasFinalizadas = comJogadores.length > 0 && comJogadores.every((p: any) => p.status === 'finalizada')
+
+      if (todasFinalizadas) {
+        await supabase.from('torneios').update({ status: 'finalizado' }).eq('id', id!)
+
+        const fmt = torneio?.formato
+        let vencedorId: string | null = null
+
+        if (fmt === 'eliminatorio_simples' || fmt === 'eliminatorio_duplo') {
+          const maxR = Math.max(...todas.map((p: any) => p.numero_rodada ?? 0))
+          vencedorId = todas.find((p: any) => p.numero_rodada === maxR && p.posicao_bracket === 0)?.vencedor_id ?? null
+        } else if (fmt === 'copa_do_mundo') {
+          const elimPs = todas.filter((p: any) => p.fase !== 'grupos')
+          if (elimPs.length > 0) {
+            const maxR = Math.max(...elimPs.map((p: any) => p.numero_rodada ?? 0))
+            vencedorId = elimPs.find((p: any) => p.numero_rodada === maxR && p.posicao_bracket === 0)?.vencedor_id ?? null
+          }
+        } else {
+          const winsMap: Record<string, number> = {}
+          todas.forEach((p: any) => { if (p.vencedor_id) winsMap[p.vencedor_id] = (winsMap[p.vencedor_id] ?? 0) + 1 })
+          vencedorId = Object.entries(winsMap).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+        }
+
+        if (vencedorId) {
+          const { data: pf } = await supabase.from('perfis').select('username, nome_display').eq('id', vencedorId).single()
+          const nome = pf?.nome_display ?? pf?.username ?? vencedorId.slice(0, 8)
+          setMsg(`🏆 Torneio finalizado! Campeão: ${nome}`)
+        } else {
+          setMsg('🏆 Torneio finalizado!')
+        }
+        await reload()
+      } else {
+        setMsg('Auto-simulação concluída.')
+        await reload()
+      }
+      return
+    }
+
+    // Partidas de grupos: simula uma rodada por vez (todos os grupos da mesma rodada juntos)
+    const gruposPendentes = pendentes.filter((p: any) => p.fase === 'grupos')
+    if (gruposPendentes.length > 0) {
+      const minRodadaGrupo = Math.min(...gruposPendentes.map((p: any) => p.numero_rodada ?? 1))
+      const lote = gruposPendentes.filter((p: any) => (p.numero_rodada ?? 1) === minRodadaGrupo)
+      const gruposNaRodada = [...new Set(lote.map((p: any) => p.grupo))].filter(Boolean).sort()
+      await simularLote(lote)
+      await reload()
+      setMsg(`▶ Auto: Rodada ${minRodadaGrupo} de grupos simulada (${lote.length} partidas · grupos ${gruposNaRodada.join(', ')})`)
+      if (!autoSimAtivo.current) return
+      const delay = 3000 + Math.random() * 2000
+      setTimeout(runAutoSimStep, delay)
+      return
+    }
+
+    // Eliminatória / round-robin / suíço: simula por rodada
     const minRodada = Math.min(...pendentes.map((p: any) => p.numero_rodada ?? 0))
     const lote = pendentes.filter((p: any) => (p.numero_rodada ?? 0) === minRodada)
     await simularLote(lote)
@@ -379,15 +613,43 @@ export default function TorneioAdmin() {
     setMsg(`▶ Auto: rodada ${minRodada || ''} simulada (${lote.length} partida${lote.length !== 1 ? 's' : ''})`)
 
     if (!autoSimAtivo.current) return
-    // Próximo step: entre 10 e 15 segundos
-    const delay = 10000 + Math.random() * 5000
+    const delay = 5000 + Math.random() * 3000
     setTimeout(runAutoSimStep, delay)
+
+    } catch (err) {
+      console.error('[autoSim] erro inesperado:', err)
+      setMsg(`⚠️ Erro inesperado: ${err instanceof Error ? err.message : String(err)} — tentando em 5s...`)
+      if (autoSimAtivo.current) setTimeout(runAutoSimStep, 5000)
+    }
   }
 
   const iniciarAutoSimular = () => {
     autoSimAtivo.current = true
     setAutoSimulando(true)
     runAutoSimStep()
+  }
+
+  const repararBracket = async () => {
+    const finalizadas = partidas.filter(p =>
+      p.status === 'finalizada' && p.vencedor_id && p.numero_rodada != null && p.posicao_bracket != null
+    )
+    let reparadas = 0
+    await Promise.all(finalizadas.map(async p => {
+      const nextRodada = p.numero_rodada! + 1
+      const nextPos = Math.floor(p.posicao_bracket! / 2)
+      const slot = p.posicao_bracket! % 2 === 0 ? 'blade1_id' : 'blade2_id'
+      const nextMatch = partidas.find(m => m.numero_rodada === nextRodada && m.posicao_bracket === nextPos)
+      if (nextMatch && nextMatch[slot as 'blade1_id' | 'blade2_id'] !== p.vencedor_id) {
+        reparadas++
+        await supabase.from('partidas')
+          .update({ [slot]: p.vencedor_id })
+          .eq('torneio_id', id!)
+          .eq('numero_rodada', nextRodada)
+          .eq('posicao_bracket', nextPos)
+      }
+    }))
+    await reload()
+    setMsg(`🔧 Bracket reparado: ${reparadas} avanço${reparadas !== 1 ? 's' : ''} aplicado${reparadas !== 1 ? 's' : ''}.`)
   }
   // ──────────────────────────────────────────────────────────────────────────
 
@@ -400,7 +662,10 @@ export default function TorneioAdmin() {
     <>
       <Navbar />
       <main style={{ maxWidth: 900, margin: '0 auto', padding: '40px 24px' }}>
-        <button onClick={() => navigate(-1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontFamily: 'DM Sans', fontSize: 13, padding: '0 0 16px 0' }}>← Voltar</button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 0 }}>
+          <button onClick={() => navigate(-1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontFamily: 'DM Sans', fontSize: 13, padding: '0 0 16px 0' }}>← Voltar</button>
+          <Link to={`/torneios/${id}/tv`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(43,91,232,0.12)', border: '1px solid rgba(43,91,232,0.3)', borderRadius: 8, padding: '6px 14px', color: 'var(--color-blue-light)', fontFamily: 'DM Sans', fontSize: 12, textDecoration: 'none', marginBottom: 16 }}>📺 Modo TV</Link>
+        </div>
         <h1 style={{ fontFamily: 'Rajdhani', fontSize: '28px', fontWeight: 700, marginBottom: 8 }}>Admin — {torneio.nome}</h1>
         <p style={{ color: 'var(--color-text-muted)', fontFamily: 'DM Sans', fontSize: '13px', marginBottom: 32 }}>Status: {torneio.status}</p>
         {msg && <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid var(--color-success)', borderRadius: 8, padding: '10px 16px', marginBottom: 24, color: 'var(--color-success)', fontFamily: 'DM Sans', fontSize: '13px' }}>{msg}</div>}
@@ -419,9 +684,13 @@ export default function TorneioAdmin() {
             {torneio.status === 'rascunho' && <button onClick={() => atualizarStatus('inscricoes')} className="btn-primary">Abrir inscrições</button>}
             {torneio.status === 'inscricoes' && linkedRankingIds.size > 0 && <button onClick={autoSeed} style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 500 }}>Seed pelo ranking</button>}
             {torneio.status === 'inscricoes' && <button onClick={gerarPartidas} className="btn-primary">Gerar partidas e iniciar</button>}
-            {torneio.status === 'em_andamento' && torneio.formato === 'copa_do_mundo' && (
-              <button onClick={avancarParaFaseEliminatoria} className="btn-primary">Avancar para fase eliminatoria</button>
-            )}
+            {torneio.status === 'em_andamento' && torneio.formato === 'copa_do_mundo' && (() => {
+              const gruposDone = partidas.filter(p => p.fase === 'grupos').every(p => p.status === 'finalizada')
+              const temElimComJog = partidas.some(p => p.fase !== 'grupos' && (p.blade1_id || p.blade2_id))
+              return gruposDone && !temElimComJog && partidas.some(p => p.fase === 'grupos')
+                ? <button onClick={avancarParaFaseEliminatoria} className="btn-primary">Avancar para fase eliminatoria</button>
+                : null
+            })()}
             {torneio.status === 'em_andamento' && torneio.formato === 'suico' && (() => {
               const rodadaAtual = partidas.length ? Math.max(...partidas.map(p => p.numero_rodada || 0)) : 0
               return rodadaAtual < torneio.num_rodadas_suico
@@ -445,6 +714,9 @@ export default function TorneioAdmin() {
                   ? <button onClick={pararAutoSimular} style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger)', border: '1px solid rgba(239,68,68,0.35)', padding: '8px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 13 }}>⏹ Parar auto-sim</button>
                   : <button onClick={iniciarAutoSimular} style={{ background: 'rgba(139,92,246,0.25)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.5)', padding: '8px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 700, fontSize: 13 }}>⏱ Auto-simular (10–15s)</button>
                 }
+                {(torneio.formato === 'eliminatorio_simples' || torneio.formato === 'eliminatorio_duplo' || torneio.formato === 'copa_do_mundo') && (
+                  <button onClick={repararBracket} disabled={autoSimulando} title="Propaga vencedores já registrados para os slots vazios da próxima rodada" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)', padding: '8px 18px', borderRadius: 8, cursor: autoSimulando ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 13, opacity: autoSimulando ? 0.5 : 1 }}>🔧 Reparar bracket</button>
+                )}
               </div>
             </div>
           )}

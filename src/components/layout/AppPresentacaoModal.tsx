@@ -80,9 +80,21 @@ const FEATURES = [
   },
   {
     icon: '📺',
-    title: 'Modo TV',
-    desc: 'Página fullscreen para projetar o bracket em telão com atualização automática a cada 30s e indicador "AO VIVO". Perfeito para eventos presenciais.',
+    title: 'Modo TV Avançado',
+    desc: 'Tela fullscreen para telão com atualização automática a cada 10s. Copa do Mundo tem abas Grupos/Eliminatória com troca automática quando a fase muda. Top 10 ao vivo com pontuação durante fase de grupos. Resultados recentes exibidos no topo.',
     color: '#22c55e',
+  },
+  {
+    icon: '🌍',
+    title: 'Copa do Mundo Completa',
+    desc: 'Máximo 4 jogadores por grupo. Rodadas configuráveis (1–4) com chaveamento circular automático. Top 2 de cada grupo avança para a eliminatória assim que o grupo termina, com cross-seeding automático. Abas inteligentes na tela do torneio.',
+    color: '#f59e0b',
+  },
+  {
+    icon: '🎲',
+    title: 'Simulação de Testes',
+    desc: 'Admin pode simular uma rodada, o torneio inteiro ou ativar auto-simulação por formato. Copa do Mundo avança top 2 de cada grupo automaticamente; Suíço gera cada rodada automaticamente. Ao terminar, finaliza o torneio e anuncia o campeão.',
+    color: '#a78bfa',
   },
   {
     icon: '↩️',
@@ -123,10 +135,13 @@ const ADMIN_FEATURES = [
   { icon: '⚙️', text: 'Configuração de pontuação, grupos e rodadas' },
   { icon: 'W.O.', text: 'Registro de W.O. com avanço no bracket' },
   { icon: '📡', text: 'Realtime — bracket sincronizado em todos os devices' },
-  { icon: '📺', text: 'Modo TV fullscreen para projetar em telão' },
+  { icon: '📺', text: 'Modo TV fullscreen — grupos em grid multi-coluna, atualização 10s' },
+  { icon: '🎲', text: 'Auto-simulação com avanço automático grupos → eliminatória (Copa do Mundo)' },
+  { icon: '🔧', text: 'Reparar bracket — reaplica avanços de vencedores com um clique' },
   { icon: '↩️', text: 'Desfazer resultado com correção automática do bracket' },
   { icon: '⏳', text: 'Fila de espera com promoção manual por ordem de chegada' },
   { icon: '📋', text: 'Templates de torneio reutilizáveis com um clique' },
+  { icon: '🛟', text: 'Detecção de torneio sem partidas: alerta + reset automático para inscrições' },
 ]
 
 export function AppPresentacaoModal({ onClose }: Props) {

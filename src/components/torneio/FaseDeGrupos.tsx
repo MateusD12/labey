@@ -9,20 +9,24 @@ interface Props {
   isAdmin?: boolean
   onRefresh?: () => void
   pontos?: { vitoria: number; empate: number; derrota: number }
+  tvMode?: boolean
 }
 
-export function FaseDeGrupos({ partidas, isAdmin, onRefresh, pontos = { vitoria: 3, empate: 1, derrota: 0 } }: Props) {
+export function FaseDeGrupos({ partidas, isAdmin, onRefresh, pontos = { vitoria: 3, empate: 1, derrota: 0 }, tvMode }: Props) {
   const [modalPartida, setModalPartida] = useState<Partida | null>(null)
   const [activeTab, setActiveTab] = useState<Record<string, 'partidas' | 'posicoes'>>({})
 
   const grupos = [...new Set(partidas.map(p => p.grupo).filter(Boolean) as string[])].sort()
   const classificacao = calcularClassificacaoGrupo(partidas, pontos)
 
-  const tabOf = (g: string) => activeTab[g] ?? 'partidas'
+  const tabOf = (g: string) => activeTab[g] ?? (tvMode ? 'posicoes' : 'partidas')
   const setTab = (g: string, t: 'partidas' | 'posicoes') => setActiveTab(prev => ({ ...prev, [g]: t }))
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+    <div style={tvMode
+      ? { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 20 }
+      : { display: 'flex', flexDirection: 'column', gap: 32 }
+    }>
       {grupos.map(grupo => {
         const grupoPartidas = partidas.filter(p => p.grupo === grupo)
         const rodadas = [...new Set(grupoPartidas.map(p => p.numero_rodada).filter(Boolean) as number[])].sort((a, b) => a - b)
