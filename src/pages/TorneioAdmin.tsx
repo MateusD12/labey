@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { useAuth } from '@/lib/auth'
@@ -24,6 +24,8 @@ export default function TorneioAdmin() {
   const [jSearch, setJSearch] = useState('')
   const [jResults, setJResults] = useState<Perfil[]>([])
   const [msg, setMsg] = useState('')
+  const [autoSimulando, setAutoSimulando] = useState(false)
+  const autoSimAtivo = useRef(false)
 
   const loadJuizes = useCallback(async () => {
     const [{ data: tj }, { data: jg }] = await Promise.all([
@@ -242,11 +244,11 @@ export default function TorneioAdmin() {
     if (ids.length < 2) { setMsg('Mínimo 2 participantes aprovados.'); return }
     let partidas: any[] = []
     const fmt = torneio.formato
-    if (fmt === 'eliminatorio_simples' || fmt === 'eliminatorio_duplo' || fmt === 'copa_do_mundo') {
+    if (fmt === 'eliminatorio_simples' || fmt === 'eliminatorio_duplo') {
       partidas = gerarBracketEliminatorio(ids, id!)
     } else if (fmt === 'suico') {
       partidas = gerarRodadaSuica(ids.map(pid => ({ id: pid, pontos: 0, adversarios: [] })), 1, id!) as any[]
-    } else if (fmt === 'fase_grupos') {
+    } else if (fmt === 'fase_grupos' || fmt === 'copa_do_mundo') {
       const insComGrupo = distribuirEmGrupos(inscricoes, torneio.num_grupos)
       await Promise.all(insComGrupo.map(i => supabase.from('inscricoes').update({ grupo: i.grupo }).eq('id', i.id)))
       partidas = gerarPartidasGrupos(insComGrupo, id!) as any[]
@@ -343,6 +345,50 @@ export default function TorneioAdmin() {
       setMsg(`⏭ ${pendentes.length} partidas simuladas!`)
     }
   }
+  const pararAutoSimular = () => {
+    autoSimAtivo.current = false
+    setAutoSimulando(false)
+    setMsg('Auto-simulação pausada.')
+  }
+
+  const runAutoSimStep = async () => {
+    if (!autoSimAtivo.current) return
+
+    // Busca direto do banco para não usar estado stale
+    const { data: ps } = await supabase
+      .from('partidas')
+      .select('id, blade1_id, blade2_id, status, numero_rodada')
+      .eq('torneio_id', id)
+      .eq('status', 'pendente')
+
+    const pendentes = (ps ?? []).filter(p => p.blade1_id && p.blade2_id)
+
+    if (!pendentes.length || !autoSimAtivo.current) {
+      autoSimAtivo.current = false
+      setAutoSimulando(false)
+      setMsg('Auto-simulação concluída — sem mais partidas pendentes.')
+      await reload()
+      return
+    }
+
+    // Simula a rodada com menor número
+    const minRodada = Math.min(...pendentes.map((p: any) => p.numero_rodada ?? 0))
+    const lote = pendentes.filter((p: any) => (p.numero_rodada ?? 0) === minRodada)
+    await simularLote(lote)
+    await reload()
+    setMsg(`▶ Auto: rodada ${minRodada || ''} simulada (${lote.length} partida${lote.length !== 1 ? 's' : ''})`)
+
+    if (!autoSimAtivo.current) return
+    // Próximo step: entre 10 e 15 segundos
+    const delay = 10000 + Math.random() * 5000
+    setTimeout(runAutoSimStep, delay)
+  }
+
+  const iniciarAutoSimular = () => {
+    autoSimAtivo.current = true
+    setAutoSimulando(true)
+    runAutoSimStep()
+  }
   // ──────────────────────────────────────────────────────────────────────────
 
   const atualizarStatus = async (status: string) => {
@@ -393,8 +439,12 @@ export default function TorneioAdmin() {
             <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--color-border)' }}>
               <p style={{ fontFamily: 'DM Sans', fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>🎲 Simulação de testes</p>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button onClick={simularRodada} style={{ background: 'rgba(139,92,246,0.12)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)', padding: '8px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 13 }}>▶ Simular rodada atual</button>
-                <button onClick={simularTudo} style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.4)', padding: '8px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 13 }}>⏭ Simular torneio completo</button>
+                <button onClick={simularRodada} disabled={autoSimulando} style={{ background: 'rgba(139,92,246,0.12)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)', padding: '8px 18px', borderRadius: 8, cursor: autoSimulando ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 13, opacity: autoSimulando ? 0.5 : 1 }}>▶ Simular rodada</button>
+                <button onClick={simularTudo} disabled={autoSimulando} style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.4)', padding: '8px 18px', borderRadius: 8, cursor: autoSimulando ? 'not-allowed' : 'pointer', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 13, opacity: autoSimulando ? 0.5 : 1 }}>⏭ Simular tudo</button>
+                {autoSimulando
+                  ? <button onClick={pararAutoSimular} style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--color-danger)', border: '1px solid rgba(239,68,68,0.35)', padding: '8px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 13 }}>⏹ Parar auto-sim</button>
+                  : <button onClick={iniciarAutoSimular} style={{ background: 'rgba(139,92,246,0.25)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.5)', padding: '8px 18px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 700, fontSize: 13 }}>⏱ Auto-simular (10–15s)</button>
+                }
               </div>
             </div>
           )}

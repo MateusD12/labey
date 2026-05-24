@@ -97,8 +97,21 @@ export default function TorneioDetalhe() {
     switch (torneio.formato) {
       case 'eliminatorio_simples':
       case 'eliminatorio_duplo':
-      case 'copa_do_mundo':
         return <BracketEliminatorio partidas={partidas} isAdmin={isAdmin} onRefresh={reload} />
+      case 'copa_do_mundo': {
+        const temElim = partidas.some(p => p.fase !== 'grupos')
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <FaseDeGrupos partidas={partidas.filter(p => p.fase === 'grupos')} isAdmin={isAdmin} onRefresh={reload} pontos={{ vitoria: torneio.pontos_vitoria, empate: torneio.pontos_empate, derrota: torneio.pontos_derrota }} />
+            {temElim && (
+              <div>
+                <h3 style={{ fontFamily: 'Rajdhani', fontSize: 20, fontWeight: 700, marginBottom: 16 }}>Fase Eliminatória</h3>
+                <BracketEliminatorio partidas={partidas.filter(p => p.fase !== 'grupos')} isAdmin={isAdmin} onRefresh={reload} />
+              </div>
+            )}
+          </div>
+        )
+      }
       case 'suico':
         return <BracketSuico partidas={partidas} isAdmin={isAdmin} onRefresh={reload} />
       case 'fase_grupos':

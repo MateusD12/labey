@@ -9,7 +9,7 @@ import { RoundRobin } from '@/components/torneio/RoundRobin'
 import { GruposStandings } from '@/components/torneio/GruposStandings'
 import { formatFormato, formatStatus } from '@/lib/utils'
 
-const REFRESH_INTERVAL = 30
+const REFRESH_INTERVAL = 10
 
 export default function TorneioTV() {
   const { id } = useParams<{ id: string }>()
@@ -53,8 +53,21 @@ export default function TorneioTV() {
     switch (torneio.formato) {
       case 'eliminatorio_simples':
       case 'eliminatorio_duplo':
-      case 'copa_do_mundo':
         return <BracketEliminatorio partidas={partidas} isAdmin={false} onRefresh={reload} />
+      case 'copa_do_mundo': {
+        const temElim = partidas.some(p => p.fase !== 'grupos')
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            <FaseDeGrupos partidas={partidas.filter(p => p.fase === 'grupos')} isAdmin={false} onRefresh={reload} pontos={{ vitoria: torneio.pontos_vitoria, empate: torneio.pontos_empate, derrota: torneio.pontos_derrota }} />
+            {temElim && (
+              <div>
+                <h2 style={{ fontFamily: 'Rajdhani', fontWeight: 700, fontSize: 22, marginBottom: 16, color: 'rgba(255,255,255,0.8)' }}>Fase Eliminatória</h2>
+                <BracketEliminatorio partidas={partidas.filter(p => p.fase !== 'grupos')} isAdmin={false} onRefresh={reload} />
+              </div>
+            )}
+          </div>
+        )
+      }
       case 'suico':
         return <BracketSuico partidas={partidas} isAdmin={false} onRefresh={reload} />
       case 'fase_grupos':
