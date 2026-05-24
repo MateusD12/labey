@@ -385,8 +385,9 @@ export default function TorneioAdmin() {
         pendentes = novasComStatus.filter(p => p.blade1_id && p.blade2_id)
       }
 
+      await supabase.from('torneios').update({ status: 'finalizado' }).eq('id', id)
       await reload()
-      setMsg(`⏭ Torneio suíço completo! ${totalSimuladas} partidas em ${rodadaAtual} rodadas.`)
+      setMsg(`⏭ Torneio suíço finalizado! ${totalSimuladas} partidas em ${rodadaAtual} rodadas.`)
     } else {
       const pendentes = partidas.filter(p => p.status === 'pendente' && p.blade1_id && p.blade2_id)
       if (!pendentes.length) { setMsg('Nenhuma partida pendente para simular.'); return }
@@ -541,14 +542,27 @@ export default function TorneioAdmin() {
       }
     }
 
-    // Auto-advance bye matches in elimination brackets (one real player, null opponent)
-    // Happens when number of advancing players is not a power of 2 (e.g. 50 players → 64-slot bracket)
+    // Auto-advance TRUE bye matches: one real player, null opponent, AND the missing
+    // player's feeder match is phantom (null/null) or finalized with no winner — i.e., it
+    // will NEVER produce a player. This prevents advancing byes prematurely when the
+    // opponent slot is just waiting for a real match to finish.
     {
       const isElimFase = (f: any) => ['semi','final','quartas','oitavas','decasseis'].includes(f) || (typeof f === 'string' && f.startsWith('rodada_'))
-      const byeMatches = todas.filter((p: any) =>
-        p.status === 'pendente' && p.numero_rodada != null && isElimFase(p.fase) &&
-        ((p.blade1_id && !p.blade2_id) || (!p.blade1_id && p.blade2_id))
-      )
+      const isTrueBye = (p: any) => {
+        if (!isElimFase(p.fase) || p.status !== 'pendente' || p.numero_rodada == null) return false
+        if (p.blade1_id && !p.blade2_id) {
+          // blade2 missing — check if its feeder (round-1, pos 2P+1) can produce a player
+          const feeder = todas.find((m: any) => m.numero_rodada === p.numero_rodada - 1 && m.posicao_bracket === 2 * p.posicao_bracket + 1)
+          return !feeder || (!feeder.blade1_id && !feeder.blade2_id) || (feeder.status === 'finalizada' && !feeder.vencedor_id)
+        }
+        if (!p.blade1_id && p.blade2_id) {
+          // blade1 missing — check if its feeder (round-1, pos 2P) can produce a player
+          const feeder = todas.find((m: any) => m.numero_rodada === p.numero_rodada - 1 && m.posicao_bracket === 2 * p.posicao_bracket)
+          return !feeder || (!feeder.blade1_id && !feeder.blade2_id) || (feeder.status === 'finalizada' && !feeder.vencedor_id)
+        }
+        return false
+      }
+      const byeMatches = todas.filter(isTrueBye)
       if (byeMatches.length > 0) {
         await Promise.all(byeMatches.map(async (bye: any) => {
           const winner = bye.blade1_id ?? bye.blade2_id

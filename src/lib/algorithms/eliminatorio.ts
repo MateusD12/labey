@@ -7,8 +7,11 @@ export function gerarBracketEliminatorio(participantesIds: string[], torneioId: 
   const partidas = []
   const totalRounds = Math.log2(tamanho)
 
-  // Round 1 — real participants, byes resolved immediately
+  // Round 1 — real participants, single byes resolved immediately
+  // Double-bye positions (both slots = 'bye') are skipped entirely — they have no players
+  // and would create phantom finalizada matches that corrupt the bracket trigger cascade.
   for (let i = 0; i < slots.length; i += 2) {
+    if (slots[i] === 'bye') continue  // both slots are padding — skip
     const blade2 = slots[i + 1] === 'bye' ? null : slots[i + 1]
     partidas.push({
       torneio_id: torneioId,
