@@ -122,7 +122,10 @@ export function BracketDuplo({ partidas, torneioId, isAdmin, onRefresh }: Props)
                       <div style={{ position: 'relative', width: CARD_W, height: wbTotalH }}>
                         <div style={roundHeaderStyle}>{wbRoundLabel(r)}</div>
                         
-                        {matches.map(p => {
+                          {matches.map(p => {
+                          // Apenas insira o console.log aqui dentro do map que já existe
+                          console.log("Conteúdo da partida:", p); 
+
                           const pIndex = getPIndex(p)
                           const top = getWBTop(r, pIndex)
                           
