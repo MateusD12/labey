@@ -6,6 +6,7 @@ import { useTorneio } from '@/hooks/useTorneio'
 import { supabase } from '@/lib/supabase'
 import { gerarBracketEliminatorio, gerarEstruturaBracketVazia } from '@/lib/algorithms/eliminatorio'
 import { gerarBracketDuplo } from '@/lib/algorithms/duplo'
+import { gerarRodadaSuica } from '@/lib/algorithms/swiss'
 import { distribuirEmGrupos, gerarPartidasGruposComRodadas, calcularClassificacaoGrupo } from '@/lib/algorithms/grupos'
 import type { Inscricao, Ranking, TorneioJuiz, Perfil } from '@/types'
 
@@ -468,13 +469,13 @@ export default function TorneioAdmin() {
           lbRound = 2 * (m.numero_rodada - 1); lbPos = m.posicao_bracket; slot = 'blade2_id'
         }
         const target = lbAll.find((p: any) => p.numero_rodada === lbRound && p.posicao_bracket === lbPos)
-        if (target && !target[slot]) drops.push(supabase.from('partidas').update({ [slot]: loser }).eq('id', target.id).then())
+        if (target && !target[slot]) drops.push(Promise.resolve(supabase.from('partidas').update({ [slot]: loser }).eq('id', target.id)))
       }
 
       // 2. LB winner → next LB or GF1 blade2
       for (const m of lbAll.filter((p: any) => p.status === 'finalizada' && p.vencedor_id)) {
         if (m.numero_rodada === lbTotalRounds) {
-          if (gf1 && !gf1.blade2_id) drops.push(supabase.from('partidas').update({ blade2_id: m.vencedor_id }).eq('id', gf1.id).then())
+          if (gf1 && !gf1.blade2_id) drops.push(Promise.resolve(supabase.from('partidas').update({ blade2_id: m.vencedor_id }).eq('id', gf1.id)))
           continue
         }
         let nextRound: number, nextPos: number, nextSlot: string
@@ -486,13 +487,13 @@ export default function TorneioAdmin() {
           nextSlot = m.posicao_bracket % 2 === 0 ? 'blade1_id' : 'blade2_id'
         }
         const target = lbAll.find((p: any) => p.numero_rodada === nextRound && p.posicao_bracket === nextPos)
-        if (target && !target[nextSlot]) drops.push(supabase.from('partidas').update({ [nextSlot]: m.vencedor_id }).eq('id', target.id).then())
+        if (target && !target[nextSlot]) drops.push(Promise.resolve(supabase.from('partidas').update({ [nextSlot]: m.vencedor_id }).eq('id', target.id)))
       }
 
       // 3. WB Final winner → GF1 blade1
       const wbFinal = wbAll.find((p: any) => p.numero_rodada === k && p.posicao_bracket === 0 && p.status === 'finalizada')
       if (wbFinal?.vencedor_id && gf1 && !gf1.blade1_id) {
-        drops.push(supabase.from('partidas').update({ blade1_id: wbFinal.vencedor_id }).eq('id', gf1.id).then())
+        drops.push(Promise.resolve(supabase.from('partidas').update({ blade1_id: wbFinal.vencedor_id }).eq('id', gf1.id)))
       }
 
       // 4. Bracket Reset: if GF1 done and LB champ won → activate GF2 with same players
@@ -500,10 +501,10 @@ export default function TorneioAdmin() {
         const wbChamp = gf1.blade1_id // by convention, WB champ is always blade1 in GF1
         if (gf1.vencedor_id !== wbChamp) {
           // LB champ won GF1 → reset: both players have 1 loss, play GF2
-          drops.push(supabase.from('partidas').update({
+          drops.push(Promise.resolve(supabase.from('partidas').update({
             blade1_id: gf1.blade1_id,
             blade2_id: gf1.blade2_id,
-          }).eq('id', gf2.id).then())
+          }).eq('id', gf2.id)))
         }
       }
 
