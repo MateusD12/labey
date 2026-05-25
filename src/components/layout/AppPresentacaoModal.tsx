@@ -8,9 +8,15 @@ interface Props {
 const FEATURES = [
   {
     icon: '🏆',
-    title: '6 Formatos de Torneio',
-    desc: 'Eliminatório Simples e Duplo, Sistema Suíço, Fase de Grupos, Round Robin e Copa do Mundo — cada modalidade com regras e progressão próprias.',
+    title: '4 Formatos de Torneio',
+    desc: 'Eliminatório Simples, Chave Dupla (WB/LB/GF), Fase de Grupos e Copa do Mundo — cada modalidade com regras e progressão próprias.',
     color: '#FFD700',
+  },
+  {
+    icon: '🔁',
+    title: 'Chave Dupla com Bracket Reset',
+    desc: 'Double Elimination completo: Winners Bracket, Losers Bracket e Grande Final com mecânica de Bracket Reset. Você só sai após perder duas vezes.',
+    color: '#f97316',
   },
   {
     icon: '⚡',
@@ -247,7 +253,7 @@ export function AppPresentacaoModal({ onClose }: Props) {
             {/* Stat pills */}
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
               {[
-                { label: '6 formatos', sub: 'de torneio' },
+                { label: '4 formatos', sub: 'de torneio' },
                 { label: 'Modo TV', sub: 'bracket em telão' },
                 { label: 'Check-in', sub: 'presença digital' },
                 { label: 'Fila de espera', sub: 'vagas inteligentes' },
