@@ -38,7 +38,6 @@ export function useTorneio(torneioId: string) {
     }
   }, [torneioId])
 
-  // Lógica de preenchimento automático para testes (puxa da tabela perfis)
   const preencherChaveamento = useCallback(async () => {
     // 1. Busca bladers da base (perfis) para preencher o torneio
     const { data: todosOsBladers } = await supabase
@@ -51,7 +50,7 @@ export function useTorneio(torneioId: string) {
       return;
     }
 
-    // 2. Busca as partidas pendentes da rodada 1
+    // 2. Busca as partidas da rodada 1
     const { data: partidasR1, error } = await supabase
       .from('partidas')
       .select('*')
@@ -65,19 +64,22 @@ export function useTorneio(torneioId: string) {
       return;
     }
 
-    // 3. Mapeia os bladers encontrados para as partidas
-    const updates = partidasR1.map((partida, index) => {
-      const p1 = todosOsBladers[index * 2];
-      const p2 = todosOsBladers[index * 2 + 1];
+    // 3. Mapeia e filtra apenas as partidas que possuem jogadores disponíveis
+    const updates = partidasR1
+      .filter((_, index) => index * 2 < todosOsBladers.length) 
+      .map((partida, index) => {
+        const p1 = todosOsBladers[index * 2];
+        const p2 = todosOsBladers[index * 2 + 1];
 
-      return {
-        id: partida.id,
-        blade1_id: p1?.id || null, 
-        blade2_id: p2?.id || null,
-        status: (p1 && p2) ? 'pendente' : 'bye'
-      };
-    });
+        return {
+          id: partida.id,
+          blade1_id: p1?.id || null, 
+          blade2_id: p2?.id || null,
+          status: (p1 && p2) ? 'pendente' : 'bye'
+        };
+      });
 
+    // 4. Salva apenas as partidas mapeadas
     const { error: updateError } = await supabase
       .from('partidas')
       .upsert(updates);
