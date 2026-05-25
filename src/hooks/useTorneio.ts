@@ -38,6 +38,45 @@ export function useTorneio(torneioId: string) {
     }
   }, [torneioId])
 
+  const preencherChaveamento = useCallback(async (listaDeInscritos: Inscricao[]) => {
+    const { data: partidasR1, error } = await supabase
+      .from('partidas')
+      .select('*')
+      .eq('torneio_id', torneioId)
+      .eq('numero_rodada', 1)
+      .eq('fase', 'winners')
+      .order('posicao_bracket', { ascending: true });
+
+    if (error || !partidasR1) {
+      console.error("Erro ao buscar partidas:", error);
+      return;
+    }
+
+    const updates = partidasR1.map((partida, index) => {
+      // Ajuste aqui para acessar o ID dentro do objeto 'perfil' que vem do Supabase
+      const p1 = listaDeInscritos[index * 2] as any; 
+      const p2 = listaDeInscritos[index * 2 + 1] as any;
+
+      return {
+        id: partida.id,
+        // Usamos o perfil.id (ajuste para p1?.perfil?.id se necessário)
+        blade1_id: p1?.perfil?.id || p1?.perfil_id || null, 
+        blade2_id: p2?.perfil?.id || p2?.perfil_id || null,
+        status: (p1 && p2) ? 'pendente' : 'bye'
+      };
+    });
+
+    const { error: updateError } = await supabase
+      .from('partidas')
+      .upsert(updates);
+
+    if (updateError) {
+      console.error("Erro ao salvar chaveamento:", updateError);
+    } else {
+      await load();
+    }
+  }, [torneioId, load]);
+
   useEffect(() => {
     if (!torneioId) return
     void load()
@@ -48,7 +87,16 @@ export function useTorneio(torneioId: string) {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [torneioId])
+  }, [torneioId, load])
 
-  return { torneio, partidas, inscricoes, rankings, loading, reload: load, partidasError }
+  return { 
+    torneio, 
+    partidas, 
+    inscricoes, 
+    rankings, 
+    loading, 
+    reload: load, 
+    partidasError, 
+    preencherChaveamento 
+  }
 }

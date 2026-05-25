@@ -14,7 +14,7 @@ export default function TorneioAdmin() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const { perfil } = useAuth()
-  const { torneio, inscricoes, partidas, loading, reload, partidasError } = useTorneio(id!)
+  const {torneio, inscricoes, partidas, loading, reload, partidasError, preencherChaveamento } = useTorneio(id!)
   const [pendentes, setPendentes] = useState<Inscricao[]>([])
   const [listaEspera, setListaEspera] = useState<Inscricao[]>([])
   const [allRankings, setAllRankings] = useState<Ranking[]>([])
@@ -735,6 +735,17 @@ export default function TorneioAdmin() {
             )}
             {torneio.status === 'em_andamento' && partidas.length > 0 && <button onClick={() => atualizarStatus('finalizado')} style={{ background: 'var(--color-success)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 500 }}>Finalizar torneio</button>}
           </div>
+
+          <button 
+            onClick={() => {
+              if (confirm("Resetar chaves e preencher automaticamente com os inscritos?")) {
+                preencherChaveamento(inscricoes)
+              }
+            }}
+            className="btn-primary"
+          >
+            Preencher Chaveamento
+          </button>
 
           {/* Simulação — só aparece quando em andamento com partidas geradas */}
           {torneio.status === 'em_andamento' && partidas.length > 0 && (
