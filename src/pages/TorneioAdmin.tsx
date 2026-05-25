@@ -14,7 +14,7 @@ export default function TorneioAdmin() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const { perfil } = useAuth()
-  const {torneio, inscricoes, partidas, loading, reload, partidasError, preencherChaveamento } = useTorneio(id!)
+  const { torneio, inscricoes, partidas, loading, reload, partidasError, preencherChaveamento } = useTorneio(id!)
   const [pendentes, setPendentes] = useState<Inscricao[]>([])
   const [listaEspera, setListaEspera] = useState<Inscricao[]>([])
   const [allRankings, setAllRankings] = useState<Ranking[]>([])
