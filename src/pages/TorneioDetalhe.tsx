@@ -135,7 +135,7 @@ export default function TorneioDetalhe() {
       case 'eliminatorio_simples':
         return <BracketEliminatorio partidas={partidas} isAdmin={isAdmin} onRefresh={reload} />
       case 'eliminatorio_duplo':
-        return <BracketDuplo partidas={partidas} isAdmin={isAdmin} onRefresh={reload} />
+        return <BracketDuplo partidas={partidas} torneioId={id!} isAdmin={isAdmin} onRefresh={reload} />
       case 'fase_grupos':
         return <FaseDeGrupos partidas={partidas} isAdmin={isAdmin} onRefresh={reload} pontos={{ vitoria: torneio.pontos_vitoria, empate: torneio.pontos_empate, derrota: torneio.pontos_derrota }} />
     }

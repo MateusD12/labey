@@ -106,7 +106,7 @@ export default function TorneioTV() {
       case 'eliminatorio_simples':
         return <BracketEliminatorio partidas={partidas} isAdmin={false} onRefresh={reload} />
       case 'eliminatorio_duplo':
-        return <BracketDuplo partidas={partidas} isAdmin={false} onRefresh={reload} />
+        return <BracketDuplo partidas={partidas} torneioId={id!} isAdmin={false} onRefresh={reload} />
       case 'fase_grupos':
         return <FaseDeGrupos partidas={partidas} isAdmin={false} onRefresh={reload} pontos={ptsProps} tvMode />
     }

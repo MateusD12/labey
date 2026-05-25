@@ -1,26 +1,43 @@
 import { useState, Fragment } from 'react'
 import type { Partida } from '@/types'
 import { MatchCard } from './MatchCard'
-import { ResultadoModal } from './ResultadoModal'
+import { ResultadoModalDuplo } from './ResultadoModalDuplo'
+import { useBracketDuplo } from '@/hooks/useBracketDuplo'
 
 const MATCH_H = 73
 const STRIDE = 93
 const CONN_W = 44
 const CARD_W = 230
 
-function calcTopsForRound(totalMatches: number, roundMatchCount: number, totalH: number): number[] {
-  const spacing = totalH / roundMatchCount
-  return Array.from({ length: roundMatchCount }, (_, i) => spacing * i + spacing / 2 - MATCH_H / 2)
+// Extrai o índice baseado na posição (1-indexed para 0-indexed)
+const getPIndex = (p: Partida) => Math.max(0, (p.posicao_bracket ?? 1) - 1)
+
+// Calcula o Top para a Chave de Vencedores mantendo as fendas fixas da árvore
+const getWBTop = (r: number, pIndex: number) => {
+  const multiplier = Math.pow(2, r - 1)
+  const offset = (multiplier - 1) * (STRIDE / 2)
+  return pIndex * multiplier * STRIDE + offset
+}
+
+// Calcula o Top para a Chave de Perdedores (lida com o revezamento entre rodadas maiores e de consolidação)
+const getLBTop = (r: number, pIndex: number) => {
+  const tier = Math.ceil(r / 2)
+  const multiplier = Math.pow(2, tier - 1)
+  const offset = (multiplier - 1) * (STRIDE / 2)
+  return pIndex * multiplier * STRIDE + offset
 }
 
 interface Props {
   partidas: Partida[]
+  torneioId: string
   isAdmin?: boolean
   onRefresh?: () => void
 }
 
-export function BracketDuplo({ partidas, isAdmin, onRefresh }: Props) {
+export function BracketDuplo({ partidas, torneioId, isAdmin, onRefresh }: Props) {
   const [modalPartida, setModalPartida] = useState<Partida | null>(null)
+
+  const { registrarResultado } = useBracketDuplo({ torneioId, partidas, onRefresh })
 
   const wbMatches = partidas.filter(p => p.fase === 'winners')
   const lbMatches = partidas.filter(p => p.fase === 'losers')
@@ -32,15 +49,14 @@ export function BracketDuplo({ partidas, isAdmin, onRefresh }: Props) {
   const lbRounds = [...new Set(lbMatches.map(p => p.numero_rodada ?? 0))].sort((a, b) => a - b)
 
   const k = wbRounds.length
-  const lbTotalRounds = 2 * (k - 1)
+  const lbTotalRounds = 2 * (Math.max(k, 1) - 1)
 
-  // WB total height based on R1 match count
-  const wbR1Count = wbMatches.filter(p => p.numero_rodada === 1).length
-  const wbTotalH = Math.max(wbR1Count, 1) * STRIDE
+  // Alturas baseadas na rodada mais longa para não quebrar o container
+  const wbR1MaxPIndex = Math.max(0, ...wbMatches.filter(p => p.numero_rodada === 1).map(getPIndex))
+  const wbTotalH = Math.max(wbR1MaxPIndex + 1, 1) * STRIDE
 
-  // LB total height based on LBR1 match count
-  const lbR1Count = lbMatches.filter(p => p.numero_rodada === 1).length
-  const lbTotalH = Math.max(lbR1Count, 1) * STRIDE
+  const lbR1MaxPIndex = Math.max(0, ...lbMatches.filter(p => p.numero_rodada === 1).map(getPIndex))
+  const lbTotalH = Math.max(lbR1MaxPIndex + 1, 1) * STRIDE
 
   const wbRoundLabel = (r: number) => {
     if (r === k) return 'WB Final'
@@ -53,7 +69,6 @@ export function BracketDuplo({ partidas, isAdmin, onRefresh }: Props) {
     return `LB R${r}`
   }
 
-  // Champion: GF2 winner if bracket reset occurred, otherwise GF1 winner
   const gf2Done = gfReset?.status === 'finalizada' && gfReset?.vencedor_id
   const gf1Done = gfMatch?.status === 'finalizada' && gfMatch?.vencedor_id
   const finalMatch = gf2Done ? gfReset! : gf1Done ? gfMatch! : null
@@ -99,30 +114,40 @@ export function BracketDuplo({ partidas, isAdmin, onRefresh }: Props) {
             <div style={{ overflowX: 'auto', paddingBottom: 12 }}>
               <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start', minWidth: k * (CARD_W + CONN_W) + CARD_W, position: 'relative', paddingTop: 32 }}>
                 {wbRounds.map((r, ri) => {
-                  const matches = wbMatches.filter(p => p.numero_rodada === r).sort((a, b) => (a.posicao_bracket ?? 0) - (b.posicao_bracket ?? 0))
-                  const tops = calcTopsForRound(wbR1Count, matches.length, wbTotalH)
+                  const matches = wbMatches.filter(p => p.numero_rodada === r)
                   const isLast = ri === wbRounds.length - 1
 
                   return (
                     <div key={r} style={{ display: 'flex', gap: 0 }}>
                       <div style={{ position: 'relative', width: CARD_W, height: wbTotalH }}>
                         <div style={roundHeaderStyle}>{wbRoundLabel(r)}</div>
-                        {matches.map((p, mi) => (
-                          <div key={p.id} style={{ position: 'absolute', left: 0, right: 0, top: tops[mi] ?? mi * STRIDE }}>
-                            <MatchCard partida={p} isAdmin={isAdmin} onRegistrar={() => setModalPartida(p)} onRefresh={onRefresh} />
-                          </div>
-                        ))}
-                        {!isLast && matches.map((_, mi) => {
-                          const t = tops[mi] ?? mi * STRIDE
-                          const center = t + MATCH_H / 2
-                          const isPairTop = mi % 2 === 0
-                          const partnerCenter = (tops[isPairTop ? mi + 1 : mi - 1] ?? (isPairTop ? mi + 1 : mi - 1) * STRIDE) + MATCH_H / 2
-                          const midY = (center + partnerCenter) / 2
+                        
+                        {matches.map(p => {
+                          const pIndex = getPIndex(p)
+                          const top = getWBTop(r, pIndex)
+                          
+                          // Diminui o destaque de partidas bye (adversário nulo na R1) para manter a estética limpa
+                          const isBye = p.numero_rodada === 1 && (!p.blade1_id || !p.blade2_id)
+                          
+                          const currentCenter = top + MATCH_H / 2
+                          const nextPos = Math.ceil((pIndex + 1) / 2)
+                          const nextPIndex = nextPos - 1
+                          const nextCenter = getWBTop(r + 1, nextPIndex) + MATCH_H / 2
+
                           return (
-                            <Fragment key={`wconn-${mi}`}>
-                              <div style={{ position: 'absolute', top: center - 1, left: CARD_W, width: CONN_W / 2, height: 2, background: 'var(--color-border)' }} />
-                              {isPairTop && <div style={{ position: 'absolute', top: center, left: CARD_W + CONN_W / 2 - 1, width: 2, height: partnerCenter - center, background: 'var(--color-border)' }} />}
-                              {isPairTop && <div style={{ position: 'absolute', top: midY - 1, left: CARD_W + CONN_W / 2, width: CONN_W / 2, height: 2, background: 'var(--color-border)' }} />}
+                            <Fragment key={p.id}>
+                              <div style={{ position: 'absolute', left: 0, right: 0, top, opacity: isBye ? 0.35 : 1 }}>
+                                <MatchCard partida={p} isAdmin={isAdmin} onRegistrar={() => setModalPartida(p)} onRefresh={onRefresh} />
+                              </div>
+                              
+                              {/* Linhas de Conexão - Desenhadas milimetricamente ponto a ponto */}
+                              {!isLast && (
+                                <Fragment>
+                                  <div style={{ position: 'absolute', top: currentCenter - 1, left: CARD_W, width: CONN_W / 2, height: 2, background: 'var(--color-border)' }} />
+                                  <div style={{ position: 'absolute', top: Math.min(currentCenter, nextCenter) - 1, left: CARD_W + CONN_W / 2 - 1, width: 2, height: Math.abs(nextCenter - currentCenter) + 2, background: 'var(--color-border)' }} />
+                                  <div style={{ position: 'absolute', top: nextCenter - 1, left: CARD_W + CONN_W / 2, width: CONN_W / 2, height: 2, background: 'var(--color-border)' }} />
+                                </Fragment>
+                              )}
                             </Fragment>
                           )
                         })}
@@ -144,43 +169,40 @@ export function BracketDuplo({ partidas, isAdmin, onRefresh }: Props) {
             </div>
             <div style={{ overflowX: 'auto', paddingBottom: 12 }}>
               <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start', minWidth: lbTotalRounds * (CARD_W + CONN_W) + CARD_W, position: 'relative', paddingTop: 32 }}>
-                {lbRounds.map((lbr, lbri) => {
-                  const matches = lbMatches.filter(p => p.numero_rodada === lbr).sort((a, b) => (a.posicao_bracket ?? 0) - (b.posicao_bracket ?? 0))
-                  const tops = calcTopsForRound(lbR1Count, matches.length, lbTotalH)
-                  const isLast = lbri === lbRounds.length - 1
-                  const isConsolidation = lbr % 2 === 0 // even = consolidation (halving), odd = drop or R1
+                {lbRounds.map((r, ri) => {
+                  const matches = lbMatches.filter(p => p.numero_rodada === r)
+                  const isLast = ri === lbRounds.length - 1
+                  const isConsolidation = r % 2 === 0 
 
                   return (
-                    <div key={lbr} style={{ display: 'flex', gap: 0 }}>
+                    <div key={r} style={{ display: 'flex', gap: 0 }}>
                       <div style={{ position: 'relative', width: CARD_W, height: lbTotalH }}>
                         <div style={{ ...roundHeaderStyle, color: isConsolidation ? '#fb923c' : '#f97316' }}>
-                          {lbRoundLabel(lbr)}
+                          {lbRoundLabel(r)}
                         </div>
-                        {matches.map((p, mi) => (
-                          <div key={p.id} style={{ position: 'absolute', left: 0, right: 0, top: tops[mi] ?? mi * STRIDE }}>
-                            <MatchCard partida={p} isAdmin={isAdmin} onRegistrar={() => setModalPartida(p)} onRefresh={onRefresh} />
-                          </div>
-                        ))}
-                        {!isLast && !isConsolidation && matches.map((_, mi) => {
-                          const t = tops[mi] ?? mi * STRIDE
-                          const center = t + MATCH_H / 2
+                        
+                        {matches.map(p => {
+                          const pIndex = getPIndex(p)
+                          const top = getLBTop(r, pIndex)
+                          
+                          const currentCenter = top + MATCH_H / 2
+                          const nextPos = isConsolidation ? Math.ceil((pIndex + 1) / 2) : (pIndex + 1)
+                          const nextPIndex = nextPos - 1
+                          const nextCenter = getLBTop(r + 1, nextPIndex) + MATCH_H / 2
+
                           return (
-                            <Fragment key={`lconn-${mi}`}>
-                              <div style={{ position: 'absolute', top: center - 1, left: CARD_W, width: CONN_W, height: 2, background: 'rgba(249,115,22,0.4)' }} />
-                            </Fragment>
-                          )
-                        })}
-                        {!isLast && isConsolidation && matches.map((_, mi) => {
-                          const t = tops[mi] ?? mi * STRIDE
-                          const center = t + MATCH_H / 2
-                          const isPairTop = mi % 2 === 0
-                          const partnerCenter = (tops[isPairTop ? mi + 1 : mi - 1] ?? (isPairTop ? mi + 1 : mi - 1) * STRIDE) + MATCH_H / 2
-                          const midY = (center + partnerCenter) / 2
-                          return (
-                            <Fragment key={`lcconn-${mi}`}>
-                              <div style={{ position: 'absolute', top: center - 1, left: CARD_W, width: CONN_W / 2, height: 2, background: 'rgba(249,115,22,0.4)' }} />
-                              {isPairTop && <div style={{ position: 'absolute', top: center, left: CARD_W + CONN_W / 2 - 1, width: 2, height: partnerCenter - center, background: 'rgba(249,115,22,0.4)' }} />}
-                              {isPairTop && <div style={{ position: 'absolute', top: midY - 1, left: CARD_W + CONN_W / 2, width: CONN_W / 2, height: 2, background: 'rgba(249,115,22,0.4)' }} />}
+                            <Fragment key={p.id}>
+                              <div style={{ position: 'absolute', left: 0, right: 0, top }}>
+                                <MatchCard partida={p} isAdmin={isAdmin} onRegistrar={() => setModalPartida(p)} onRefresh={onRefresh} />
+                              </div>
+                              
+                              {!isLast && (
+                                <Fragment>
+                                  <div style={{ position: 'absolute', top: currentCenter - 1, left: CARD_W, width: CONN_W / 2, height: 2, background: 'rgba(249,115,22,0.4)' }} />
+                                  <div style={{ position: 'absolute', top: Math.min(currentCenter, nextCenter) - 1, left: CARD_W + CONN_W / 2 - 1, width: 2, height: Math.abs(nextCenter - currentCenter) + 2, background: 'rgba(249,115,22,0.4)' }} />
+                                  <div style={{ position: 'absolute', top: nextCenter - 1, left: CARD_W + CONN_W / 2, width: CONN_W / 2, height: 2, background: 'rgba(249,115,22,0.4)' }} />
+                                </Fragment>
+                              )}
                             </Fragment>
                           )
                         })}
@@ -201,7 +223,6 @@ export function BracketDuplo({ partidas, isAdmin, onRefresh }: Props) {
               🏆 Grande Final
             </div>
             <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-              {/* GF1 */}
               <div>
                 <div style={{ fontFamily: 'DM Sans', fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   Partida 1
@@ -219,12 +240,10 @@ export function BracketDuplo({ partidas, isAdmin, onRefresh }: Props) {
                 </div>
               </div>
 
-              {/* Arrow or separator */}
               <div style={{ display: 'flex', alignItems: 'center', paddingTop: 36, color: 'var(--color-text-muted)', fontSize: 20 }}>
                 →
               </div>
 
-              {/* GF2 / Bracket Reset */}
               <div>
                 <div style={{
                   fontFamily: 'DM Sans', fontSize: 11, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em',
@@ -261,10 +280,11 @@ export function BracketDuplo({ partidas, isAdmin, onRefresh }: Props) {
       </div>
 
       {modalPartida && (
-        <ResultadoModal
+        <ResultadoModalDuplo
           partida={modalPartida}
           onClose={() => setModalPartida(null)}
-          onSaved={() => { setModalPartida(null); onRefresh?.() }}
+          onSaved={() => setModalPartida(null)}
+          registrarResultado={registrarResultado}
         />
       )}
     </>
