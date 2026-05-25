@@ -38,7 +38,20 @@ export function useTorneio(torneioId: string) {
     }
   }, [torneioId])
 
-  const preencherChaveamento = useCallback(async (listaDeInscritos: Inscricao[]) => {
+  const preencherChaveamento = useCallback(async () => {
+    // Busca direto do banco os inscritos que estão com status aprovado
+    const { data: inscritosAprovados } = await supabase
+      .from('inscricoes')
+      .select('blade_id, perfil_id')
+      .eq('torneio_id', torneioId)
+      .eq('status', 'aprovado');
+
+    if (!inscritosAprovados || inscritosAprovados.length === 0) {
+      alert("Nenhum participante aprovado encontrado! Aprove as inscrições primeiro.");
+      return;
+    }
+
+    // Busca as partidas da rodada 1 da chave de vencedores
     const { data: partidasR1, error } = await supabase
       .from('partidas')
       .select('*')
@@ -52,16 +65,15 @@ export function useTorneio(torneioId: string) {
       return;
     }
 
+    // Mapeia os inscritos aprovados para as partidas vazias
     const updates = partidasR1.map((partida, index) => {
-      // Ajuste aqui para acessar o ID dentro do objeto 'perfil' que vem do Supabase
-      const p1 = listaDeInscritos[index * 2] as any; 
-      const p2 = listaDeInscritos[index * 2 + 1] as any;
+      const p1 = inscritosAprovados[index * 2] as any; 
+      const p2 = inscritosAprovados[index * 2 + 1] as any;
 
       return {
         id: partida.id,
-        // Usamos o perfil.id (ajuste para p1?.perfil?.id se necessário)
-        blade1_id: p1?.perfil?.id || p1?.perfil_id || null, 
-        blade2_id: p2?.perfil?.id || p2?.perfil_id || null,
+        blade1_id: p1?.blade_id || p1?.perfil_id || null, 
+        blade2_id: p2?.blade_id || p2?.perfil_id || null,
         status: (p1 && p2) ? 'pendente' : 'bye'
       };
     });
@@ -74,6 +86,7 @@ export function useTorneio(torneioId: string) {
       console.error("Erro ao salvar chaveamento:", updateError);
     } else {
       await load();
+      alert("Chaveamento preenchido com sucesso!");
     }
   }, [torneioId, load]);
 

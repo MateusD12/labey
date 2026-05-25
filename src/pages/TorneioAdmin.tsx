@@ -739,12 +739,13 @@ export default function TorneioAdmin() {
           <button 
             onClick={() => {
               if (confirm("Resetar chaves e preencher automaticamente com os inscritos?")) {
-                preencherChaveamento(inscricoes)
+                preencherChaveamento(); // <--- SEM o "inscricoes" aqui dentro
               }
             }}
             className="btn-primary"
+            style={{ padding: '10px 20px', cursor: 'pointer' }}
           >
-            Preencher Chaveamento
+            Preencher Chaveamento Automaticamente
           </button>
 
           {/* Simulação — só aparece quando em andamento com partidas geradas */}
