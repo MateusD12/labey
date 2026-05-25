@@ -7,9 +7,8 @@ import { useAuth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { calcularClassificacaoGrupo } from '@/lib/algorithms/grupos'
 import { BracketEliminatorio } from '@/components/torneio/BracketEliminatorio'
-import { BracketSuico } from '@/components/torneio/BracketSuico'
+import { BracketDuplo } from '@/components/torneio/BracketDuplo'
 import { FaseDeGrupos } from '@/components/torneio/FaseDeGrupos'
-import { RoundRobin } from '@/components/torneio/RoundRobin'
 import { Posicoes } from '@/components/torneio/Posicoes'
 import { GruposStandings } from '@/components/torneio/GruposStandings'
 import { PartidaTimer } from '@/components/torneio/PartidaTimer'
@@ -134,14 +133,11 @@ export default function TorneioDetalhe() {
   const renderBracket = () => {
     switch (torneio.formato) {
       case 'eliminatorio_simples':
-      case 'eliminatorio_duplo':
         return <BracketEliminatorio partidas={partidas} isAdmin={isAdmin} onRefresh={reload} />
-      case 'suico':
-        return <BracketSuico partidas={partidas} isAdmin={isAdmin} onRefresh={reload} />
+      case 'eliminatorio_duplo':
+        return <BracketDuplo partidas={partidas} isAdmin={isAdmin} onRefresh={reload} />
       case 'fase_grupos':
         return <FaseDeGrupos partidas={partidas} isAdmin={isAdmin} onRefresh={reload} pontos={{ vitoria: torneio.pontos_vitoria, empate: torneio.pontos_empate, derrota: torneio.pontos_derrota }} />
-      case 'round_robin':
-        return <RoundRobin partidas={partidas} isAdmin={isAdmin} onRefresh={reload} />
     }
   }
 

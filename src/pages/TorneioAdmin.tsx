@@ -5,9 +5,8 @@ import { useAuth } from '@/lib/auth'
 import { useTorneio } from '@/hooks/useTorneio'
 import { supabase } from '@/lib/supabase'
 import { gerarBracketEliminatorio, gerarEstruturaBracketVazia } from '@/lib/algorithms/eliminatorio'
-import { gerarRodadaSuica } from '@/lib/algorithms/swiss'
+import { gerarBracketDuplo } from '@/lib/algorithms/duplo'
 import { distribuirEmGrupos, gerarPartidasGruposComRodadas, calcularClassificacaoGrupo } from '@/lib/algorithms/grupos'
-import { gerarPartidasRoundRobin } from '@/lib/algorithms/roundrobin'
 import type { Inscricao, Ranking, TorneioJuiz, Perfil } from '@/types'
 
 export default function TorneioAdmin() {
@@ -268,10 +267,10 @@ export default function TorneioAdmin() {
     if (ids.length < 2) { setMsg('Mínimo 2 participantes aprovados.'); return }
     let geradas: any[] = []
     const fmt = torneio.formato
-    if (fmt === 'eliminatorio_simples' || fmt === 'eliminatorio_duplo') {
+    if (fmt === 'eliminatorio_simples') {
       geradas = gerarBracketEliminatorio(ids, id!)
-    } else if (fmt === 'suico') {
-      geradas = gerarRodadaSuica(ids.map(pid => ({ id: pid, pontos: 0, adversarios: [] })), 1, id!) as any[]
+    } else if (fmt === 'eliminatorio_duplo') {
+      geradas = gerarBracketDuplo(ids, id!)
     } else if (fmt === 'fase_grupos' || fmt === 'copa_do_mundo') {
       // Enforce max 4 players per group
       const numGrupos = Math.max(torneio.num_grupos, Math.ceil(ids.length / 4))
@@ -285,8 +284,6 @@ export default function TorneioAdmin() {
         const elimVazia = gerarEstruturaBracketVazia(numClassificados, id!)
         geradas = [...geradas, ...elimVazia]
       }
-    } else if (fmt === 'round_robin') {
-      geradas = gerarPartidasRoundRobin(ids, id!) as any[]
     }
     if (geradas.length === 0) { setMsg('Não foi possível gerar partidas. Verifique o número de participantes.'); return }
     const { error: insertErr } = await supabase.from('partidas').insert(geradas)
@@ -335,63 +332,10 @@ export default function TorneioAdmin() {
   }
 
   const simularTudo = async () => {
-    if (torneio.formato === 'suico') {
-      // Swiss: gera + simula todas as rodadas em loop
-      let todasPartidas = [...partidas]
-      let rodadaAtual = todasPartidas.length ? Math.max(...todasPartidas.map(p => p.numero_rodada || 0)) : 0
-      let totalSimuladas = 0
-
-      // Simula pendentes existentes primeiro
-      let pendentes = todasPartidas.filter(p => p.status === 'pendente' && p.blade1_id && p.blade2_id)
-
-      while (pendentes.length > 0 || rodadaAtual < torneio.num_rodadas_suico) {
-        if (pendentes.length > 0) {
-          await simularLote(pendentes)
-          totalSimuladas += pendentes.length
-          // Marca como finalizadas no array local
-          pendentes.forEach(p => {
-            const idx = todasPartidas.findIndex(x => x.id === p.id)
-            if (idx >= 0) todasPartidas[idx] = { ...todasPartidas[idx], status: 'finalizada' }
-          })
-          rodadaAtual = Math.max(rodadaAtual, ...pendentes.map(p => p.numero_rodada || 0))
-        }
-
-        if (rodadaAtual >= torneio.num_rodadas_suico) break
-
-        // Calcula pontos e adversários para a próxima rodada
-        const pontosMap: Record<string, number> = {}
-        const adversariosMap: Record<string, string[]> = {}
-        inscricoes.forEach(i => { pontosMap[i.blade_id] = 0; adversariosMap[i.blade_id] = [] })
-        todasPartidas.forEach(p => {
-          if (p.status !== 'finalizada' || !p.blade1_id || !p.blade2_id) return
-          adversariosMap[p.blade1_id] = [...(adversariosMap[p.blade1_id] || []), p.blade2_id]
-          adversariosMap[p.blade2_id] = [...(adversariosMap[p.blade2_id] || []), p.blade1_id]
-          if (p.vencedor_id) pontosMap[p.vencedor_id] = (pontosMap[p.vencedor_id] || 0) + (torneio.pontos_vitoria || 1)
-        })
-
-        const participantes = inscricoes.map(i => ({
-          id: i.blade_id,
-          pontos: pontosMap[i.blade_id] || 0,
-          adversarios: adversariosMap[i.blade_id] || [],
-        }))
-
-        const novasPartidas = gerarRodadaSuica(participantes, rodadaAtual + 1, id!)
-        if (!novasPartidas.length) break
-
-        const { error } = await supabase.from('partidas').insert(novasPartidas)
-        if (error) { setMsg(`Erro gerando rodada ${rodadaAtual + 1}: ${error.message}`); return }
-        const novasComStatus = novasPartidas.map(p => ({ ...p, status: 'pendente' as const })) as typeof partidas
-        todasPartidas = [...todasPartidas, ...novasComStatus]
-        pendentes = novasComStatus.filter(p => p.blade1_id && p.blade2_id)
-      }
-
-      await supabase.from('torneios').update({ status: 'finalizado' }).eq('id', id)
-      await reload()
-      setMsg(`⏭ Torneio suíço finalizado! ${totalSimuladas} partidas em ${rodadaAtual} rodadas.`)
-    } else {
+    {
       const pendentes = partidas.filter(p => p.status === 'pendente' && p.blade1_id && p.blade2_id)
       if (!pendentes.length) { setMsg('Nenhuma partida pendente para simular.'); return }
-      // Grupos: simula um grupo por vez para não sobrecarregar (ex: 900 partidas)
+      // Grupos: simula um grupo por vez para não sobrecarregar
       const gruposPend = pendentes.filter(p => (p as any).fase === 'grupos')
       if (gruposPend.length > 0) {
         const sortedGrupos = [...new Set(gruposPend.map((p: any) => p.grupo))].filter(Boolean).sort() as string[]
@@ -502,42 +446,71 @@ export default function TorneioAdmin() {
       }
     }
 
-    // Suíço: quando toda a rodada atual está concluída, gerar a próxima automaticamente
-    if (torneio?.formato === 'suico' && todas.length > 0) {
-      const rodadaAtual = Math.max(...todas.map((p: any) => p.numero_rodada ?? 0))
-      const matchesDaRodada = todas.filter((p: any) => (p.numero_rodada ?? 0) === rodadaAtual)
-      const rodadaConcluida = matchesDaRodada.length > 0 && matchesDaRodada.every((p: any) => p.status === 'finalizada')
-      const proximaExiste = todas.some((p: any) => (p.numero_rodada ?? 0) > rodadaAtual)
+    // ── Double Elimination: WB loser drops + LB winner propagation ─────────
+    if (torneio?.formato === 'eliminatorio_duplo') {
+      const wbAll = todas.filter((p: any) => p.fase === 'winners')
+      const lbAll = todas.filter((p: any) => p.fase === 'losers')
+      const gf1 = todas.find((p: any) => p.fase === 'grand_final' && (p.numero_rodada ?? 1) === 1)
+      const gf2 = todas.find((p: any) => p.fase === 'grand_final' && (p.numero_rodada ?? 1) === 2)
+      const k = wbAll.length > 0 ? Math.max(...wbAll.map((p: any) => p.numero_rodada ?? 0)) : 0
+      const lbTotalRounds = 2 * (k - 1)
+      const drops: Promise<any>[] = []
 
-      if (rodadaConcluida && !proximaExiste && rodadaAtual < (torneio.num_rodadas_suico ?? 0)) {
-        setMsg(`🔄 Rodada ${rodadaAtual} concluída! Gerando rodada ${rodadaAtual + 1}/${torneio.num_rodadas_suico}...`)
-
-        const pontosMap: Record<string, number> = {}
-        const adversariosMap: Record<string, string[]> = {}
-        const allPlayerIds = [...new Set([
-          ...todas.filter((p: any) => p.blade1_id).map((p: any) => p.blade1_id as string),
-          ...todas.filter((p: any) => p.blade2_id).map((p: any) => p.blade2_id as string),
-        ])]
-        allPlayerIds.forEach(pid => { pontosMap[pid] = 0; adversariosMap[pid] = [] })
-        todas.forEach((p: any) => {
-          if (p.status !== 'finalizada' || !p.blade1_id || !p.blade2_id) return
-          adversariosMap[p.blade1_id].push(p.blade2_id)
-          adversariosMap[p.blade2_id].push(p.blade1_id)
-          if (p.vencedor_id) pontosMap[p.vencedor_id] = (pontosMap[p.vencedor_id] || 0) + (torneio.pontos_vitoria || 1)
-        })
-        const participantes = allPlayerIds.map(pid => ({
-          id: pid, pontos: pontosMap[pid] || 0, adversarios: adversariosMap[pid] || [],
-        }))
-
-        const novasPartidas = gerarRodadaSuica(participantes, rodadaAtual + 1, id!)
-        const { error: suicoErr } = await supabase.from('partidas').insert(novasPartidas)
-        if (suicoErr) {
-          setMsg(`Erro ao gerar rodada ${rodadaAtual + 1}: ${suicoErr.message}`)
-          autoSimAtivo.current = false; setAutoSimulando(false); return
+      // 1. WB loser → LB slot
+      for (const m of wbAll.filter((p: any) => p.status === 'finalizada' && p.vencedor_id)) {
+        const loser = m.blade1_id === m.vencedor_id ? m.blade2_id : m.blade1_id
+        if (!loser) continue
+        let lbRound: number, lbPos: number, slot: string
+        if (m.numero_rodada === 1) {
+          lbRound = 1; lbPos = Math.floor(m.posicao_bracket / 2)
+          slot = m.posicao_bracket % 2 === 0 ? 'blade1_id' : 'blade2_id'
+        } else {
+          lbRound = 2 * (m.numero_rodada - 1); lbPos = m.posicao_bracket; slot = 'blade2_id'
         }
+        const target = lbAll.find((p: any) => p.numero_rodada === lbRound && p.posicao_bracket === lbPos)
+        if (target && !target[slot]) drops.push(supabase.from('partidas').update({ [slot]: loser }).eq('id', target.id).then())
+      }
+
+      // 2. LB winner → next LB or GF1 blade2
+      for (const m of lbAll.filter((p: any) => p.status === 'finalizada' && p.vencedor_id)) {
+        if (m.numero_rodada === lbTotalRounds) {
+          if (gf1 && !gf1.blade2_id) drops.push(supabase.from('partidas').update({ blade2_id: m.vencedor_id }).eq('id', gf1.id).then())
+          continue
+        }
+        let nextRound: number, nextPos: number, nextSlot: string
+        if (m.numero_rodada % 2 === 1) {
+          nextRound = m.numero_rodada + 1; nextPos = m.posicao_bracket; nextSlot = 'blade1_id'
+        } else {
+          nextRound = m.numero_rodada + 1
+          nextPos = Math.floor(m.posicao_bracket / 2)
+          nextSlot = m.posicao_bracket % 2 === 0 ? 'blade1_id' : 'blade2_id'
+        }
+        const target = lbAll.find((p: any) => p.numero_rodada === nextRound && p.posicao_bracket === nextPos)
+        if (target && !target[nextSlot]) drops.push(supabase.from('partidas').update({ [nextSlot]: m.vencedor_id }).eq('id', target.id).then())
+      }
+
+      // 3. WB Final winner → GF1 blade1
+      const wbFinal = wbAll.find((p: any) => p.numero_rodada === k && p.posicao_bracket === 0 && p.status === 'finalizada')
+      if (wbFinal?.vencedor_id && gf1 && !gf1.blade1_id) {
+        drops.push(supabase.from('partidas').update({ blade1_id: wbFinal.vencedor_id }).eq('id', gf1.id).then())
+      }
+
+      // 4. Bracket Reset: if GF1 done and LB champ won → activate GF2 with same players
+      if (gf1?.status === 'finalizada' && gf1.vencedor_id && gf2 && !gf2.blade1_id) {
+        const wbChamp = gf1.blade1_id // by convention, WB champ is always blade1 in GF1
+        if (gf1.vencedor_id !== wbChamp) {
+          // LB champ won GF1 → reset: both players have 1 loss, play GF2
+          drops.push(supabase.from('partidas').update({
+            blade1_id: gf1.blade1_id,
+            blade2_id: gf1.blade2_id,
+          }).eq('id', gf2.id).then())
+        }
+      }
+
+      if (drops.length > 0) {
+        await Promise.all(drops)
         await reload()
-        setMsg(`✅ Rodada ${rodadaAtual + 1}/${torneio.num_rodadas_suico} gerada! Simulando em 3s...`)
-        if (autoSimAtivo.current) setTimeout(runAutoSimStep, 3000)
+        if (autoSimAtivo.current) setTimeout(runAutoSimStep, 500)
         return
       }
     }
@@ -598,9 +571,14 @@ export default function TorneioAdmin() {
         const fmt = torneio?.formato
         let vencedorId: string | null = null
 
-        if (fmt === 'eliminatorio_simples' || fmt === 'eliminatorio_duplo') {
+        if (fmt === 'eliminatorio_simples') {
           const maxR = Math.max(...todas.map((p: any) => p.numero_rodada ?? 0))
           vencedorId = todas.find((p: any) => p.numero_rodada === maxR && p.posicao_bracket === 0)?.vencedor_id ?? null
+        } else if (fmt === 'eliminatorio_duplo') {
+          // GF2 (bracket reset) takes precedence; fall back to GF1
+          const gf2v = todas.find((p: any) => p.fase === 'grand_final' && (p.numero_rodada ?? 1) === 2)?.vencedor_id
+          const gf1v = todas.find((p: any) => p.fase === 'grand_final' && (p.numero_rodada ?? 1) === 1)?.vencedor_id
+          vencedorId = gf2v ?? gf1v ?? null
         } else if (fmt === 'copa_do_mundo') {
           const elimPs = todas.filter((p: any) => p.fase !== 'grupos')
           if (elimPs.length > 0) {
@@ -750,12 +728,6 @@ export default function TorneioAdmin() {
               return gruposDone && !temElimComJog && partidas.some(p => p.fase === 'grupos')
                 ? <button onClick={avancarParaFaseEliminatoria} className="btn-primary">Avancar para fase eliminatoria</button>
                 : null
-            })()}
-            {torneio.status === 'em_andamento' && torneio.formato === 'suico' && (() => {
-              const rodadaAtual = partidas.length ? Math.max(...partidas.map(p => p.numero_rodada || 0)) : 0
-              return rodadaAtual < torneio.num_rodadas_suico
-                ? <button onClick={gerarProximaRodadaSuica} className="btn-primary">{rodadaAtual === 0 ? 'Gerar rodada 1' : `Gerar próxima rodada (${rodadaAtual}/${torneio.num_rodadas_suico})`}</button>
-                : <span style={{ fontFamily: 'DM Sans', fontSize: 13, color: 'var(--color-text-muted)', padding: '10px 0' }}>Todas as {torneio.num_rodadas_suico} rodadas geradas</span>
             })()}
             {torneio.status === 'em_andamento' && partidas.length === 0 && (
               <button onClick={() => atualizarStatus('inscricoes')} style={{ background: 'rgba(245,158,11,0.15)', color: 'var(--color-warning)', border: '1px solid rgba(245,158,11,0.4)', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontFamily: 'DM Sans', fontWeight: 500 }}>⚠️ Resetar para Inscrições</button>

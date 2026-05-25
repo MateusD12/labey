@@ -3,8 +3,6 @@ export type Formato =
   | 'eliminatorio_duplo'
   | 'fase_grupos'
   | 'copa_do_mundo'
-  | 'suico'
-  | 'round_robin'
 
 export type StatusTorneio = 'rascunho' | 'inscricoes' | 'em_andamento' | 'finalizado' | 'cancelado'
 export type StatusPartida = 'pendente' | 'em_andamento' | 'finalizada' | 'w.o.'

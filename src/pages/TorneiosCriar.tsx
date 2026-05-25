@@ -23,11 +23,9 @@ function saveTemplates(ts: TorneioTemplate[]) {
 
 const formatos: { value: Formato; label: string }[] = [
   { value: 'eliminatorio_simples', label: 'Eliminatório Simples' },
-  { value: 'eliminatorio_duplo', label: 'Eliminatório Duplo' },
+  { value: 'eliminatorio_duplo', label: 'Chave Dupla (WB/LB)' },
   { value: 'fase_grupos', label: 'Fase de Grupos' },
   { value: 'copa_do_mundo', label: 'Copa do Mundo' },
-  { value: 'suico', label: 'Sistema Suíço' },
-  { value: 'round_robin', label: 'Round Robin' },
 ]
 
 const inputStyle: React.CSSProperties = { width: '100%', background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '10px 14px', color: 'var(--color-text-primary)', fontFamily: 'DM Sans', fontSize: '14px' }
@@ -40,7 +38,7 @@ export default function TorneiosCriar() {
     nome: '', descricao: '', formato: 'eliminatorio_simples' as Formato,
     max_participantes: '', data_inicio: '', premio: '', regras: '',
     pontos_vitoria: '3', pontos_empate: '1', pontos_derrota: '0',
-    num_grupos: '4', classificados_por_grupo: '2', num_rodadas_suico: '5', num_rodadas_grupo: '3',
+    num_grupos: '4', classificados_por_grupo: '2', num_rodadas_grupo: '3',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -95,7 +93,6 @@ export default function TorneiosCriar() {
       pontos_derrota: parseInt(form.pontos_derrota) || 0,
       num_grupos: parseInt(form.num_grupos) || 4,
       classificados_por_grupo: parseInt(form.classificados_por_grupo) || 2,
-      num_rodadas_suico: parseInt(form.num_rodadas_suico) || 5,
       num_rodadas_grupo: Math.min(4, Math.max(1, parseInt(form.num_rodadas_grupo) || 3)),
     }).select().single()
     if (err) { setError(err.message); setSaving(false); return }
@@ -157,9 +154,6 @@ export default function TorneiosCriar() {
               <div><label style={labelStyle}>Classificados por grupo</label><input type="number" min="1" max="4" value={form.classificados_por_grupo} onChange={e => set('classificados_por_grupo', e.target.value)} style={inputStyle} /></div>
               <div><label style={labelStyle}>Rodadas por grupo (1–4)</label><input type="number" min="1" max="4" value={form.num_rodadas_grupo} onChange={e => set('num_rodadas_grupo', e.target.value)} style={inputStyle} /></div>
             </div>
-          )}
-          {form.formato === 'suico' && (
-            <div><label style={labelStyle}>Número de rodadas suíças</label><input type="number" min="1" value={form.num_rodadas_suico} onChange={e => set('num_rodadas_suico', e.target.value)} style={inputStyle} /></div>
           )}
           <div><label style={labelStyle}>Prêmio</label><input value={form.premio} onChange={e => set('premio', e.target.value)} style={inputStyle} placeholder="Ex: Troféu + Kit Beyblade" /></div>
           <div><label style={labelStyle}>Descrição</label><textarea value={form.descricao} onChange={e => set('descricao', e.target.value)} style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} placeholder="Descreva o torneio..." /></div>

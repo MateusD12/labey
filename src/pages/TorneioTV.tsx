@@ -3,9 +3,8 @@ import { useParams, Link } from 'react-router-dom'
 import { RefreshCw, Wifi } from 'lucide-react'
 import { useTorneio } from '@/hooks/useTorneio'
 import { BracketEliminatorio } from '@/components/torneio/BracketEliminatorio'
-import { BracketSuico } from '@/components/torneio/BracketSuico'
+import { BracketDuplo } from '@/components/torneio/BracketDuplo'
 import { FaseDeGrupos } from '@/components/torneio/FaseDeGrupos'
-import { RoundRobin } from '@/components/torneio/RoundRobin'
 import { calcularClassificacaoGrupo } from '@/lib/algorithms/grupos'
 import { formatFormato, formatStatus } from '@/lib/utils'
 import type { Partida } from '@/types'
@@ -105,14 +104,11 @@ export default function TorneioTV() {
 
     switch (torneio.formato) {
       case 'eliminatorio_simples':
-      case 'eliminatorio_duplo':
         return <BracketEliminatorio partidas={partidas} isAdmin={false} onRefresh={reload} />
-      case 'suico':
-        return <BracketSuico partidas={partidas} isAdmin={false} onRefresh={reload} />
+      case 'eliminatorio_duplo':
+        return <BracketDuplo partidas={partidas} isAdmin={false} onRefresh={reload} />
       case 'fase_grupos':
         return <FaseDeGrupos partidas={partidas} isAdmin={false} onRefresh={reload} pontos={ptsProps} tvMode />
-      case 'round_robin':
-        return <RoundRobin partidas={partidas} isAdmin={false} onRefresh={reload} />
     }
     return null
   }

@@ -21,11 +21,9 @@ export function formatStatus(status: string): string {
 export function formatFormato(formato: string): string {
   const map: Record<string, string> = {
     eliminatorio_simples: 'Eliminatório Simples',
-    eliminatorio_duplo: 'Eliminatório Duplo',
+    eliminatorio_duplo: 'Chave Dupla (WB/LB)',
     fase_grupos: 'Fase de Grupos',
     copa_do_mundo: 'Copa do Mundo',
-    suico: 'Sistema Suíço',
-    round_robin: 'Round Robin',
   }
   return map[formato] ?? formato
 }
