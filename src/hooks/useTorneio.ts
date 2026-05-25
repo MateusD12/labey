@@ -38,20 +38,20 @@ export function useTorneio(torneioId: string) {
     }
   }, [torneioId])
 
+  // Lógica de preenchimento automático para testes (puxa da tabela perfis)
   const preencherChaveamento = useCallback(async () => {
-    // Busca direto do banco os inscritos que estão com status aprovado
-    const { data: inscritosAprovados } = await supabase
-      .from('inscricoes')
-      .select('blade_id, perfil_id')
-      .eq('torneio_id', torneioId)
-      .eq('status', 'aprovado');
+    // 1. Busca bladers da base (perfis) para preencher o torneio
+    const { data: todosOsBladers } = await supabase
+      .from('perfis')
+      .select('id')
+      .limit(20);
 
-    if (!inscritosAprovados || inscritosAprovados.length === 0) {
-      alert("Nenhum participante aprovado encontrado! Aprove as inscrições primeiro.");
+    if (!todosOsBladers || todosOsBladers.length < 2) {
+      alert("Não encontrei bladers suficientes na base para preencher.");
       return;
     }
 
-    // Busca as partidas da rodada 1 da chave de vencedores
+    // 2. Busca as partidas pendentes da rodada 1
     const { data: partidasR1, error } = await supabase
       .from('partidas')
       .select('*')
@@ -65,15 +65,15 @@ export function useTorneio(torneioId: string) {
       return;
     }
 
-    // Mapeia os inscritos aprovados para as partidas vazias
+    // 3. Mapeia os bladers encontrados para as partidas
     const updates = partidasR1.map((partida, index) => {
-      const p1 = inscritosAprovados[index * 2] as any; 
-      const p2 = inscritosAprovados[index * 2 + 1] as any;
+      const p1 = todosOsBladers[index * 2];
+      const p2 = todosOsBladers[index * 2 + 1];
 
       return {
         id: partida.id,
-        blade1_id: p1?.blade_id || p1?.perfil_id || null, 
-        blade2_id: p2?.blade_id || p2?.perfil_id || null,
+        blade1_id: p1?.id || null, 
+        blade2_id: p2?.id || null,
         status: (p1 && p2) ? 'pendente' : 'bye'
       };
     });
@@ -86,7 +86,7 @@ export function useTorneio(torneioId: string) {
       console.error("Erro ao salvar chaveamento:", updateError);
     } else {
       await load();
-      alert("Chaveamento preenchido com sucesso!");
+      alert("Chaveamento preenchido com sucesso com bladers da base!");
     }
   }, [torneioId, load]);
 
